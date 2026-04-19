@@ -2,209 +2,183 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="Aurora"/>
-<meta name="theme-color" content="#0a0a14"/>
+<meta name="theme-color" content="#0d0d1a"/>
 <link rel="manifest" href="/manifest.json"/>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
-<title>Aurora Trading</title>
+<title>Aurora</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
 
-<!-- AUTH SCREEN -->
+<!-- ═══ AUTH ═══ -->
 <div id="auth-screen">
   <div class="auth-wrap">
-    <div class="auth-logo-wrap">
-      <img src="/icon-512.png" class="auth-logo-img" alt="Aurora"/>
-    </div>
+    <img src="/icon-512.png" class="auth-logo" alt="Aurora"/>
     <div class="auth-title">AURORA</div>
     <div class="auth-tagline">AI TRADING SYSTEM</div>
 
-    <div id="register-form" class="auth-form">
-      <div class="auth-section-label">Créer un compte</div>
-      <input type="text" id="auth-name" placeholder="Ton pseudo" class="auth-input" autocomplete="off"/>
-      <button class="auth-btn" id="btn-register">Créer mon compte</button>
-      <div class="auth-switch">Déjà un compte ? <span id="link-show-login" class="auth-link">Connexion avec token</span></div>
+    <div id="reg-form" class="auth-form">
+      <div class="auth-lbl">Créer un compte</div>
+      <input type="text" id="auth-name" placeholder="Ton pseudo" class="auth-inp" autocomplete="off"/>
+      <button class="auth-btn" id="btn-reg">Créer mon compte</button>
+      <div class="auth-switch">Déjà un compte ? <span id="go-login" class="auth-link">Se connecter</span></div>
     </div>
 
     <div id="login-form" class="auth-form" style="display:none">
-      <div class="auth-section-label">Connexion</div>
-      <input type="text" id="auth-token" placeholder="Colle ton token ici" class="auth-input" autocomplete="off"/>
+      <div class="auth-lbl">Connexion</div>
+      <input type="text" id="auth-tok" placeholder="Colle ton token ici" class="auth-inp" autocomplete="off"/>
       <button class="auth-btn" id="btn-login">Se connecter</button>
-      <div class="auth-switch">Pas de compte ? <span id="link-show-register" class="auth-link">Créer un compte</span></div>
+      <div class="auth-switch">Pas de compte ? <span id="go-reg" class="auth-link">Créer un compte</span></div>
     </div>
   </div>
 </div>
 
-<!-- APP SCREEN -->
+<!-- ═══ APP ═══ -->
 <div id="app-screen" style="display:none">
   <div class="status-bar"></div>
 
-  <header class="header">
-    <div class="header-left">
-      <img src="/icon-192.png" class="header-icon" alt="A"/>
-      <div>
-        <div class="header-title">AURORA</div>
-        <div class="header-sub">
-          <div class="bot-status-dot" id="bot-dot"></div>
-          <span id="header-sub">Connexion...</span>
-        </div>
-      </div>
-    </div>
-    <div class="header-right">
-      <button id="btn-logout" class="logout-btn">Déco</button>
-    </div>
-  </header>
-
   <!-- Active trade banner -->
-  <div class="active-banner" id="active-banner" style="display:none">
-    <div>
-      <div class="active-dir" id="active-dir"></div>
-      <div class="active-levels" id="active-levels"></div>
-    </div>
-    <div class="active-lot" id="active-lot"></div>
+  <div class="active-banner" id="ab" style="display:none">
+    <div><div class="ab-dir" id="ab-dir"></div><div class="ab-levels" id="ab-lvl"></div></div>
+    <div class="ab-lot" id="ab-lot"></div>
   </div>
 
   <main class="content">
 
-    <!-- DASHBOARD -->
+    <!-- ── DASHBOARD ── -->
     <section id="tab-dashboard" class="tab-section active">
-      <div class="dash-header">
+      <div class="dash-splash">
         <img src="/icon-512.png" class="dash-logo" alt=""/>
-        <div class="dash-title">AURORA</div>
-        <div class="dash-status">
-          <div class="bot-status-dot" id="dash-dot"></div>
-          <span id="dash-status-text">Bot Status: CONNECTING</span>
+        <div class="dash-name">AURORA</div>
+        <div class="dash-status-row">
+          <div class="status-dot" id="sdot"></div>
+          <span id="stext">Bot Status: CONNECTING</span>
         </div>
-        <div class="dash-tagline">AI Trading System</div>
+        <div class="dash-ai">Ai Trading System</div>
       </div>
 
-      <!-- PnL card -->
       <div class="pnl-card">
-        <div class="pnl-label">
-          <span>Profit &amp; Loss</span>
-          <span style="font-size:11px;color:var(--muted)">···</span>
+        <div class="pnl-card-header">
+          <span class="pnl-card-title">Profit &amp; Loss</span>
+          <span class="pnl-card-dots">···</span>
         </div>
-        <div class="pnl-value" id="d-pnl">+€0,00</div>
-        <div class="pnl-sub" id="d-pnl-pct">+0%</div>
-        <div class="equity-wrap">
-          <div class="equity-label">Equity Curve</div>
-          <canvas id="equity-canvas" height="70"></canvas>
+        <div class="pnl-value">
+          <span id="d-pnl">+€0,00</span>
+          <span class="pnl-pct" id="d-pct">+0%</span>
         </div>
+        <div class="equity-label">Equity Curve</div>
+        <canvas id="eq-canvas" height="80"></canvas>
       </div>
 
-      <!-- 3 stats -->
-      <div class="stat-row">
-        <div class="stat-card">
-          <div class="stat-card-label">Today</div>
-          <div class="stat-card-val green" id="d-today">+€0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-label">Win Rate</div>
-          <div class="stat-card-val" id="d-wr">0%</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-card-label">Drawdown</div>
-          <div class="stat-card-val red" id="d-dd">0%</div>
-        </div>
+      <div class="stats3">
+        <div class="s3-card"><div class="s3-lbl">Today</div><div class="s3-val green" id="d-today">+€0</div></div>
+        <div class="s3-card"><div class="s3-lbl">Win Rate</div><div class="s3-val" id="d-wr">0%</div></div>
+        <div class="s3-card"><div class="s3-lbl">Drawdown</div><div class="s3-val red" id="d-dd">-0%</div></div>
       </div>
 
-      <!-- Active trade -->
-      <div class="section-label">Trade actif</div>
-      <div id="no-active" class="empty-state">Aucun trade en cours</div>
-      <div id="active-card" class="active-trade-card" style="display:none">
-        <div class="atc-header">
-          <div>
-            <div class="atc-symbol" id="ac-symbol">NAS100</div>
-            <div class="atc-time" id="ac-time"></div>
-          </div>
+      <div class="section-lbl">Trade actif</div>
+      <div id="no-active" class="empty">Aucun trade en cours</div>
+      <div id="active-card" class="active-trade" style="display:none">
+        <div class="at-header">
+          <div><div class="at-sym" id="ac-sym">NAS100</div><div class="at-time" id="ac-time"></div></div>
           <span class="pill pill-active">EN COURS</span>
         </div>
-        <div class="atc-levels">
-          <div class="atc-lvl"><div class="atc-lvl-l">ENTRY</div><div class="atc-lvl-v" id="ac-entry">—</div></div>
-          <div class="atc-lvl"><div class="atc-lvl-l">SL</div><div class="atc-lvl-v red" id="ac-sl">—</div></div>
-          <div class="atc-lvl"><div class="atc-lvl-l">TP1</div><div class="atc-lvl-v green" id="ac-tp">—</div></div>
+        <div class="at-levels">
+          <div class="at-lvl"><div class="at-lvl-l">ENTRY</div><div class="at-lvl-v" id="ac-e">—</div></div>
+          <div class="at-lvl"><div class="at-lvl-l">SL</div><div class="at-lvl-v red" id="ac-sl">—</div></div>
+          <div class="at-lvl"><div class="at-lvl-l">TP1</div><div class="at-lvl-v green" id="ac-tp">—</div></div>
         </div>
-        <div class="atc-footer">
-          <div class="confirm-dots" id="ac-dots"></div>
-          <div class="atc-lot" id="ac-lot"></div>
+        <div class="at-footer">
+          <div class="cdots" id="ac-dots"></div>
+          <div class="at-lot" id="ac-lot"></div>
         </div>
       </div>
 
-      <div class="section-label">Derniers trades</div>
+      <div class="section-lbl" style="margin-top:14px">Derniers trades</div>
       <div id="recent-list"></div>
     </section>
 
-    <!-- STATS -->
+    <!-- ── STATISTICS ── -->
     <section id="tab-stats" class="tab-section">
-      <div class="period-tabs">
-        <div class="period-tab active" data-period="week">Semaine</div>
-        <div class="period-tab" data-period="month">Mois</div>
-        <div class="period-tab" data-period="all">Année</div>
+      <div class="stats-header">
+        <button class="back-btn">‹</button>
+        <span>Statistics</span>
+      </div>
+      <div class="period-row">
+        <button class="per-btn active" data-p="week">Semaine</button>
+        <button class="per-btn" data-p="month">Mois</button>
+        <button class="per-btn" data-p="year">Année</button>
       </div>
 
       <div class="perf-card">
-        <div class="perf-card-title">Performance</div>
+        <div class="perf-title">Performance</div>
         <div class="perf-val" id="s-pnl">+€0</div>
-        <div class="perf-sub" id="s-sub">0 Trades</div>
+        <div class="perf-sub" id="s-sub">Ce mois-ci · 0 Trades</div>
       </div>
 
-      <div class="winrate-card">
-        <div class="winrate-card-title">Trades Gagnants</div>
-        <div class="winrate-body">
-          <div class="winrate-left">
-            <div class="winrate-pct" id="s-wr">0%</div>
-            <div class="winrate-label">Win Rate</div>
-            <div class="winrate-bars" style="margin-top:14px">
+      <div class="wr-card">
+        <div class="wr-card-title">Trades Gagnants</div>
+        <div class="wr-body">
+          <div class="wr-left">
+            <div class="wr-pct-row">
+              <span class="wr-pct" id="s-wr">0%</span>
+              <span class="wr-win">Win</span>
+            </div>
+            <div class="wr-bars">
               <div class="wr-bar-row">
-                <div class="wr-bar-bg"><div class="wr-bar-fill" id="wr-bar-tp" style="width:0%;background:var(--green)"></div></div>
-                <div class="wr-bar-label green" id="wr-tp-count">0</div>
+                <div class="wr-bar-bg"><div class="wr-bar-fill" id="wbar-tp" style="width:0%;background:var(--green)"></div></div>
+                <div class="wr-count green" id="wct-tp">0</div>
               </div>
               <div class="wr-bar-row">
-                <div class="wr-bar-bg"><div class="wr-bar-fill" id="wr-bar-sl" style="width:0%;background:var(--red)"></div></div>
-                <div class="wr-bar-label red" id="wr-sl-count">0</div>
+                <div class="wr-bar-bg"><div class="wr-bar-fill" id="wbar-sl" style="width:0%;background:var(--red)"></div></div>
+                <div class="wr-count red" id="wct-sl">0</div>
               </div>
             </div>
           </div>
-          <div class="donut-wrap-outer">
-            <svg id="donut-svg" viewBox="0 0 120 120" width="110" height="110"></svg>
+          <div class="donut-side">
+            <svg id="donut" viewBox="0 0 120 120" width="100" height="100"></svg>
           </div>
         </div>
       </div>
 
-      <div class="bar-chart-card">
-        <div class="bar-chart-title">
-          <span>Gains vs Pertes</span>
-          <span style="font-size:11px;color:var(--muted)" id="bar-max-label"></span>
+      <div class="gvp-card">
+        <div class="gvp-header">
+          <span class="gvp-title">Gains vs Pertes</span>
+          <span class="gvp-dots">···</span>
         </div>
-        <div class="bar-chart-body" id="bar-chart"></div>
+        <div class="gvp-max" id="gvp-max"></div>
+        <div class="bar-chart" id="bar-chart" style="margin-top:8px"></div>
       </div>
     </section>
 
-    <!-- HISTORIQUE -->
+    <!-- ── HISTORIQUE ── -->
     <section id="tab-history" class="tab-section">
-      <div style="font-size:18px;font-weight:600;margin-bottom:14px">Historique des Trades</div>
-      <div class="filter-row">
-        <button class="filter-btn active" data-filter="all">Tous</button>
-        <button class="filter-btn" data-filter="TP1">TP Atteint</button>
-        <button class="filter-btn" data-filter="SL">SL Touché</button>
-        <button class="filter-btn" data-filter="today">Aujourd'hui</button>
+      <div class="hist-header">
+        <button class="back-btn">‹</button>
+        <span>Historique des Trades</span>
       </div>
-      <div id="history-list"></div>
+      <div class="filter-row">
+        <button class="filter-btn active" data-f="all">Tous</button>
+        <button class="filter-btn" data-f="TP1">TP Atteint</button>
+        <button class="filter-btn" data-f="SL">SL Touché</button>
+        <button class="filter-btn" data-f="today">Aujourd'hui</button>
+      </div>
+      <div id="hist-list"></div>
 
-      <div class="section-label" style="margin-top:20px">Saisie manuelle</div>
+      <div class="section-lbl" style="padding:0 14px;margin-top:18px">Saisie manuelle</div>
       <div class="manual-card">
         <div class="form-row">
-          <select id="f-symbol" class="form-input"><option>NAS100</option><option>US30</option><option>EURUSD</option><option>GBPUSD</option><option>XAUUSD</option></select>
+          <select id="f-sym" class="form-input"><option>NAS100</option><option>US30</option><option>EUR/USD</option><option>GBP/USD</option><option>XAU/USD</option><option>BTC/USD</option></select>
           <select id="f-dir" class="form-input"><option value="BUY">LONG</option><option value="SELL">SHORT</option></select>
         </div>
         <div class="form-row">
-          <input type="number" id="f-entry" placeholder="Entry" class="form-input" step="0.01"/>
+          <input type="number" id="f-entry" placeholder="Entrée" class="form-input" step="0.01"/>
           <input type="number" id="f-lot" placeholder="Lot" class="form-input" step="0.001"/>
         </div>
         <div class="form-row">
@@ -212,43 +186,43 @@
           <input type="number" id="f-tp" placeholder="TP1" class="form-input" step="0.01"/>
         </div>
         <div class="form-row">
-          <select id="f-result" class="form-input"><option value="TP1">TP Atteint</option><option value="SL">SL Touché</option></select>
+          <select id="f-res" class="form-input"><option value="TP1">TP Atteint</option><option value="SL">SL Touché</option></select>
           <input type="number" id="f-pnl" placeholder="PnL (€)" class="form-input" step="0.01"/>
         </div>
         <button class="big-btn" id="submit-manual">+ Ajouter trade</button>
       </div>
     </section>
 
-    <!-- SETTINGS -->
+    <!-- ── SETTINGS ── -->
     <section id="tab-settings" class="tab-section">
-      <div class="settings-card">
-        <div class="settings-label">Mon Token</div>
-        <div class="settings-token" id="my-token">—</div>
-        <button class="copy-btn" id="copy-token">Copier le token</button>
-      </div>
-
-      <div class="settings-card">
-        <div class="settings-label">Webhook TradingView</div>
-        <div class="settings-url" id="webhook-url">—</div>
-        <button class="copy-btn" id="copy-webhook">Copier l'URL</button>
-      </div>
-
-      <div class="settings-card">
-        <div class="settings-label">Payload BUY/SELL</div>
-        <div class="code-pre">{"action":"BUY","symbol":"{{ticker}}","lot":{{strategy.order.contracts}}}</div>
-      </div>
-
-      <div class="settings-card">
-        <div class="settings-label">Partager avec un ami</div>
-        <div style="font-size:12px;color:var(--muted2);line-height:1.8">
-          Ton ami ouvre l'app → Créer un compte → reçoit son propre token → le met dans ses alertes TradingView. Chacun voit ses propres trades.
+      <div class="settings-page">
+        <div class="set-card">
+          <div class="set-lbl">Mon Token</div>
+          <div class="set-token" id="my-token">—</div>
+          <button class="copy-btn" id="copy-token">Copier le token</button>
         </div>
-      </div>
-
-      <div class="settings-card">
-        <div class="settings-label">Notifications Push</div>
-        <div id="push-status">Non activé</div>
-        <button class="big-btn" id="enable-push">Activer les notifications</button>
+        <div class="set-card">
+          <div class="set-lbl">Webhook TradingView</div>
+          <div class="set-val" id="webhook-url">—</div>
+          <button class="copy-btn" id="copy-wh">Copier l'URL</button>
+        </div>
+        <div class="set-card">
+          <div class="set-lbl">Payload BUY/SELL</div>
+          <div class="code-pre">{"action":"BUY","symbol":"{{ticker}}","lot":{{strategy.order.contracts}}}</div>
+        </div>
+        <div class="set-card">
+          <div class="set-lbl">Partager avec un ami</div>
+          <div style="font-size:12px;color:var(--muted2);line-height:1.8">Ton ami ouvre l'app → Créer un compte → reçoit son propre token → le met dans ses alertes TradingView.</div>
+        </div>
+        <div class="set-card">
+          <div class="set-lbl">Notifications Push</div>
+          <div id="push-status">Non activé</div>
+          <button class="big-btn" id="enable-push">Activer les notifications</button>
+        </div>
+        <div class="set-card">
+          <div class="set-lbl">Compte</div>
+          <button class="big-btn" id="btn-logout" style="background:rgba(255,51,85,0.15);color:var(--red);box-shadow:none;border:1px solid rgba(255,51,85,0.3)">Se déconnecter</button>
+        </div>
       </div>
     </section>
 
@@ -256,22 +230,10 @@
 
   <!-- Bottom nav -->
   <nav class="bottom-nav">
-    <button class="nav-btn active" data-tab="dashboard">
-      <div class="nav-icon">⚡</div>
-      <div class="nav-label">Dashboard</div>
-    </button>
-    <button class="nav-btn" data-tab="stats">
-      <div class="nav-icon">📊</div>
-      <div class="nav-label">Statistics</div>
-    </button>
-    <button class="nav-btn" data-tab="history">
-      <div class="nav-icon">📋</div>
-      <div class="nav-label">Historique</div>
-    </button>
-    <button class="nav-btn" data-tab="settings">
-      <div class="nav-icon">⚙️</div>
-      <div class="nav-label">Réglages</div>
-    </button>
+    <button class="nav-btn active" data-tab="dashboard"><div class="nav-icon">🔔</div><div>Dashboard</div></button>
+    <button class="nav-btn" data-tab="stats"><div class="nav-icon">📈</div><div>Statistics</div></button>
+    <button class="nav-btn" data-tab="history"><div class="nav-icon">📋</div><div>Historique</div></button>
+    <button class="nav-btn" data-tab="settings"><div class="nav-icon">⚙️</div><div>Réglages</div></button>
   </nav>
 </div>
 
