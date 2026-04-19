@@ -144,11 +144,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 
 /* BOTTOM NAV — exactly 3 icons like mockup */
 
-
-
-
-
-
 /* SETTINGS */
 .settings-wrap{padding:14px 14px 100px}
 .set-card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px}
@@ -172,6 +167,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .filter-btn.active{border-color:rgba(100,50,255,0.5);color:#aa66ff;background:rgba(100,50,255,0.1)}
 .toast{position:fixed;bottom:calc(80px + var(--safe-bot));left:50%;transform:translateX(-50%) translateY(80px);background:rgba(20,20,40,0.97);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:10px 20px;font-size:12px;color:#fff;transition:transform .3s ease;pointer-events:none;white-space:nowrap;z-index:200;backdrop-filter:blur(20px)}
 .toast.show{transform:translateX(-50%) translateY(0)}
-.bottom-nav{display:flex;background:rgba(10,10,18,0.97);backdrop-filter:blur(20px);border-top:.5px solid rgba(255,255,255,0.08);flex-shrink:0;padding-bottom:var(--safe-bot);z-index:2}
-.nav-btn{flex:1;display:flex;align-items:center;justify-content:center;padding:11px 0;background:none;border:none;color:var(--muted);font-family:var(--sans);font-size:12px;font-weight:600;letter-spacing:.3px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:color .2s}
-.nav-btn.active{color:var(--blue)}
+
+
+.bottom-nav{display:flex;flex-direction:row;background:#0a0a12;border-top:.5px solid rgba(255,255,255,0.08);flex-shrink:0;padding-bottom:var(--safe-bot);margin:0;padding-top:0}
+.nav-btn{flex:1;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;border-radius:0;box-shadow:none;margin:0;padding:0;color:var(--muted);font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-appearance:none;appearance:none;outline:none;transition:color .2s}
+.nav-btn.active{color:#4488ff}
