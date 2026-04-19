@@ -222,38 +222,36 @@ function renderBarChart(){
 
 function renderSettings(){$('my-token').textContent=TOKEN||'—';$('webhook-url').textContent=`${window.location.origin}/webhook/${TOKEN}`;}
 
-// NAV
-document.querySelectorAll('.nav-btn').forEach(btn=>{
-  btn.onclick=()=>{
-    const name=btn.dataset.tab;
-    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
-    btn.classList.add('active');$(`tab-${name}`).classList.add('active');
-    if(name==='stats')renderStats();if(name==='history')renderHistList();
-  };
+// ── Side menu ──
+function openMenu(){$('side-menu').classList.add('open');$('menu-overlay').classList.add('open');}
+function closeMenu(){$('side-menu').classList.remove('open');$('menu-overlay').classList.remove('open');}
+
+$('menu-btn').onclick=openMenu;
+$('menu-overlay').onclick=closeMenu;
+
+function goTab(name){
+  document.querySelectorAll('.side-item').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
+  const active=document.querySelector(`.side-item[data-tab="${name}"]`);
+  if(active)active.classList.add('active');
+  $(`tab-${name}`).classList.add('active');
+  closeMenu();
+  if(name==='stats')renderStats();
+  if(name==='history')renderHistList();
+}
+
+document.querySelectorAll('.side-item').forEach(btn=>{
+  btn.onclick=()=>goTab(btn.dataset.tab);
 });
 document.querySelectorAll('.per-btn').forEach(b=>{b.onclick=()=>{document.querySelectorAll('.per-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderStats();};});
 document.querySelectorAll('.filter-btn').forEach(b=>{b.onclick=()=>{document.querySelectorAll('.filter-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');filterActive=b.dataset.f;renderHistList();};});
-$('back-stats').onclick=()=>goHome();$('back-hist').onclick=()=>goHome();
-function goHome(){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));document.querySelector('[data-tab="dashboard"]').classList.add('active');$('tab-dashboard').classList.add('active');}
+$('back-stats').onclick=()=>goTab('dashboard');
+$('back-hist').onclick=()=>goTab('dashboard');
 
 $('copy-wh').onclick=()=>{navigator.clipboard.writeText(`${window.location.origin}/webhook/${TOKEN}`).then(()=>toast('URL copiée !')).catch(()=>toast('Copié !'));};
 
 // PUSH
 function b64ToU8(b64){const pad='='.repeat((4-b64.length%4)%4);const b=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from([...atob(b)].map(c=>c.charCodeAt(0)));}
-$('enable-push').onclick=async()=>{
-  if(!('serviceWorker'in navigator)){toast('Installe l\'app depuis Safari d\'abord');return;}
-  if(!('PushManager'in window)){toast('Lance l\'app depuis l\'écran d\'accueil');return;}
-  const perm=await Notification.requestPermission();
-  if(perm!=='granted'){toast('Permission refusée');return;}
-  try{
-    const{key}=await(await fetch(`${API}/api/vapid-public-key`)).json();
-    const reg=await navigator.serviceWorker.ready;
-    const sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(key)});
-    await fetch(`${API}/api/${TOKEN}/push/subscribe`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(sub)});
-    $('push-status').textContent='✓ Notifications activées';$('push-status').style.color='var(--green)';toast('Notifications activées !');
-  }catch(e){toast('Erreur: '+e.message);}
-};
 
 // INIT
 async function init(){if(!TOKEN){showAuth();return;}showApp();await regSW();await loadAll();renderAll();connectSSE();}
