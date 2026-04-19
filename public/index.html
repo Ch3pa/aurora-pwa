@@ -41,7 +41,34 @@
 <div id="app-screen" style="display:none">
   <div class="status-bar"></div>
 
-  <!-- Active banner -->
+  <!-- Header avec hamburger -->
+  <div class="header">
+    <button class="menu-btn" id="menu-btn">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="header-center">
+      <div class="sdot" id="sdot"></div>
+      <span id="stext">Bot Status: CONNECTING</span>
+    </div>
+    <button id="btn-logout" class="logout-btn">Déco</button>
+  </div>
+
+  <!-- Overlay + menu latéral -->
+  <div class="menu-overlay" id="menu-overlay"></div>
+  <div class="side-menu" id="side-menu">
+    <div class="side-menu-top">
+      <img src="/icon-512.png" class="side-logo" alt=""/>
+      <div class="side-name">AURORA</div>
+    </div>
+    <div class="side-items">
+      <button class="side-item active" data-tab="dashboard">⚡ &nbsp; Dashboard</button>
+      <button class="side-item" data-tab="stats">📊 &nbsp; Statistics</button>
+      <button class="side-item" data-tab="history">📋 &nbsp; Historique</button>
+      <button class="side-item" data-tab="settings">⚙️ &nbsp; Réglages</button>
+    </div>
+  </div>
+
+  <!-- Active trade banner -->
   <div class="active-banner" id="ab" style="display:none">
     <div><div class="ab-dir" id="ab-dir"></div><div class="ab-lvl" id="ab-lvl"></div></div>
     <div class="ab-lot" id="ab-lot"></div>
@@ -55,8 +82,8 @@
         <img src="/icon-512.png" class="dash-logo" alt=""/>
         <div class="dash-name">AURORA</div>
         <div class="dash-status-row">
-          <div class="sdot" id="sdot"></div>
-          <span id="stext">Bot Status: CONNECTING</span>
+          <div class="sdot2" id="sdot2"></div>
+          <span id="stext2">Bot Status: CONNECTING</span>
         </div>
         <div class="dash-ai">Ai Trading System</div>
       </div>
@@ -132,7 +159,7 @@
 
     <!-- HISTORIQUE -->
     <section id="tab-history" class="tab-section">
-      <div class="hist-hdr"><button class="back-btn" id="back-hist">‹</button><span>Historique des Trades</span></div>
+      <div class="page-hdr"><button class="back-btn" id="back-hist">‹</button><span>Historique des Trades</span></div>
       <div class="filter-row">
         <button class="filter-btn active" data-f="all">Tous</button>
         <button class="filter-btn" data-f="TP1">TP Atteint</button>
@@ -149,20 +176,11 @@
         <div class="set-card"><div class="set-lbl">Webhook TradingView</div><div class="set-val" id="webhook-url">—</div><button class="copy-btn" id="copy-wh">Copier l'URL</button></div>
         <div class="set-card"><div class="set-lbl">Payload BUY/SELL</div><div class="code-pre">{"action":"BUY","symbol":"{{ticker}}","lot":{{strategy.order.contracts}}}</div></div>
         <div class="set-card"><div class="set-lbl">Partager avec un ami</div><div style="font-size:12px;color:var(--muted2);line-height:1.8">Ton ami ouvre l'app → Créer un compte → reçoit son propre token → le met dans ses alertes TradingView.</div></div>
-
-        <div class="set-card"><button class="big-btn" id="btn-logout" style="background:rgba(255,51,85,0.15);color:var(--red);box-shadow:none;border:1px solid rgba(255,51,85,0.3);margin-top:0">Se déconnecter</button></div>
+        <div class="set-card"><button class="big-btn" id="btn-logout2" style="background:rgba(255,51,85,0.15);color:var(--red);box-shadow:none;border:1px solid rgba(255,51,85,0.3);margin-top:0">Se déconnecter</button></div>
       </div>
     </section>
 
   </main>
-
-  <!-- Bottom nav — 3 icons like mockup -->
-  <nav class="bottom-nav">
-    <button class="nav-btn active" data-tab="dashboard">Aurora</button>
-    <button class="nav-btn" data-tab="stats">Statistics</button>
-    <button class="nav-btn" data-tab="history">Historique</button>
-    <button class="nav-btn" data-tab="settings">Réglages</button>
-  </nav>
 </div>
 
 <div id="toast" class="toast"></div>
