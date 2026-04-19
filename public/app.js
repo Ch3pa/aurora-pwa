@@ -315,12 +315,39 @@ $('copy-token').addEventListener('click', () => {
 });
 
 // ── Push ──
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
 $('enable-push').addEventListener('click', async () => {
-  if (!('Notification' in window)) { showToast('Non supporté'); return; }
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    showToast('Push non supporté sur ce navigateur'); return;
+  }
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') { showToast('Permission refusée'); return; }
-  $('push-status').textContent = '✓ Notifications activées'; $('push-status').style.color = 'var(--green)';
-  showToast('Notifications activées !');
+  try {
+    const vapidRes = await fetch(`${API}/api/vapid-public-key`);
+    const { key } = await vapidRes.json();
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(key)
+    });
+    await fetch(`${API}/api/${TOKEN}/push/subscribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sub)
+    });
+    $('push-status').textContent = '✓ Notifications activées sur cet appareil';
+    $('push-status').style.color = 'var(--green)';
+    showToast('Notifications activées !');
+  } catch(e) {
+    console.error('[PUSH]', e);
+    showToast('Erreur : ' + e.message);
+  }
 });
 
 // ── Init ──
