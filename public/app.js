@@ -73,31 +73,52 @@ function renderDay(){
   $('d-today').textContent=(pnl>=0?'+€':'-€')+Math.abs(pnl).toFixed(2);$('d-today').className='s3-v '+(pnl>=0?'green':'red');
   $('d-wr').textContent=wr.toFixed(0)+'%';$('d-wr').style.color=wr>=50?'var(--green)':'var(--red)';
   $('d-dd').textContent='-'+(d.sl||0)+'R';
-  drawEquity();
+  requestAnimationFrame(drawEquity);
 }
 
 function drawEquity(){
   const c=$('eq-canvas');if(!c)return;
-  const ctx=c.getContext('2d'),W=c.offsetWidth||300,H=90;
-  c.width=W*window.devicePixelRatio;c.height=H*window.devicePixelRatio;
+  // Wait for layout if width not ready
+  const W=c.parentElement?c.parentElement.offsetWidth-36:300;
+  const H=90;const dpr=window.devicePixelRatio||1;
+  c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);
   c.style.width=W+'px';c.style.height=H+'px';
-  ctx.scale(window.devicePixelRatio,window.devicePixelRatio);
+  const ctx=c.getContext('2d');
+  ctx.scale(dpr,dpr);
   ctx.clearRect(0,0,W,H);
-  // use real data or demo curve like mockup
-  const data=equityData.length>=3?equityData:[0,5,3,8,6,12,10,16,14,20,18,25,22,30,28,35,32,40,45,50,48,55,52,60,58,65,70,68,75,80];
-  const mn=Math.min(...data,0),mx=Math.max(...data,1),range=mx-mn||1;
-  const pts=data.map((v,i)=>({x:i/(data.length-1)*(W-4)+2,y:H-6-((v-mn)/range)*(H-14)}));
-  // fill
+  // Use real equity data or demo rising curve
+  const data=equityData.length>=2?equityData:[0,2,1,4,3,7,5,9,8,12,10,15,13,18,16,21,20,25,23,28,27,32,30,36,34,40,38,44,42,48,50];
+  const mn=Math.min(...data),mx=Math.max(...data,mn+1),range=mx-mn;
+  const pad=4;
+  const pts=data.map((v,i)=>({
+    x:pad+i/(data.length-1)*(W-pad*2),
+    y:H-pad-((v-mn)/range)*(H-pad*2-8)
+  }));
+  // Smooth curve using bezier
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x,H);
+  ctx.lineTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++){
+    const mx2=(pts[i-1].x+pts[i].x)/2;
+    ctx.bezierCurveTo(mx2,pts[i-1].y,mx2,pts[i].y,pts[i].x,pts[i].y);
+  }
+  ctx.lineTo(pts[pts.length-1].x,H);
+  ctx.closePath();
   const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'rgba(0,230,118,0.25)');g.addColorStop(1,'rgba(0,230,118,0.0)');
-  ctx.beginPath();ctx.moveTo(pts[0].x,H);
-  pts.forEach(p=>ctx.lineTo(p.x,p.y));
-  ctx.lineTo(pts[pts.length-1].x,H);ctx.closePath();ctx.fillStyle=g;ctx.fill();
-  // line
-  ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
-  pts.forEach(p=>ctx.lineTo(p.x,p.y));
-  ctx.strokeStyle='#00e676';ctx.lineWidth=2;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();
+  g.addColorStop(0,'rgba(0,230,118,0.3)');
+  g.addColorStop(1,'rgba(0,230,118,0.0)');
+  ctx.fillStyle=g;ctx.fill();
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++){
+    const mx2=(pts[i-1].x+pts[i].x)/2;
+    ctx.bezierCurveTo(mx2,pts[i-1].y,mx2,pts[i].y,pts[i].x,pts[i].y);
+  }
+  ctx.strokeStyle='#00e676';ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();
 }
+// Redraw on resize
+window.addEventListener('resize',()=>{if(TOKEN)drawEquity();});
 
 function renderBanner(){
   const t=state.activeTrade,b=$('ab');
