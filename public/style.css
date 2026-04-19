@@ -163,3 +163,16 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 /* ── Toast ── */
 .toast { position: fixed; bottom: calc(20px + var(--safe-bot)); left: 50%; transform: translateX(-50%) translateY(80px); background: var(--bg3); border: 0.5px solid var(--border2); border-radius: 10px; padding: 10px 18px; font-size: 12px; color: var(--text); transition: transform 0.3s ease; pointer-events: none; white-space: nowrap; z-index: 100; }
 .toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ── Auth screen ── */
+#auth-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; min-height:100dvh; background:var(--bg); padding:24px; }
+#app-screen { display:flex; flex-direction:column; height:100vh; height:100dvh; overflow:hidden; }
+.auth-wrap { width:100%; max-width:340px; }
+.auth-logo { font-size:40px; text-align:center; margin-bottom:8px; }
+.auth-title { font-family:var(--mono); font-size:22px; font-weight:700; letter-spacing:3px; color:var(--gold); text-align:center; }
+.auth-sub { font-size:12px; color:var(--muted); text-align:center; margin-bottom:32px; }
+.auth-form { display:flex; flex-direction:column; gap:10px; }
+.auth-section-label { font-family:var(--mono); font-size:9px; letter-spacing:2px; color:var(--muted); margin-bottom:2px; }
+.auth-switch { font-size:12px; color:var(--muted); text-align:center; margin-top:4px; }
+.auth-link { color:var(--gold); cursor:pointer; text-decoration:underline; }
+.logout-btn { background:none; border:none; color:var(--muted); font-size:14px; cursor:pointer; padding:4px 8px; -webkit-tap-highlight-color:transparent; }
