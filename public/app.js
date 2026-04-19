@@ -34,7 +34,9 @@ $('btn-login').onclick=async()=>{
   localStorage.setItem('aurora_token',d.token);localStorage.setItem('aurora_name',d.name);
   TOKEN=d.token;USERNAME=d.name;showApp();await loadAll();connectSSE();}catch{toast('Erreur réseau');}
 };
-$('btn-logout').onclick=()=>{localStorage.removeItem('aurora_token');localStorage.removeItem('aurora_name');TOKEN=null;USERNAME=null;if(eventSource)eventSource.close();showAuth();};
+function doLogout(){localStorage.removeItem('aurora_token');localStorage.removeItem('aurora_name');TOKEN=null;USERNAME=null;if(eventSource)eventSource.close();showAuth();}
+$('btn-logout').onclick=doLogout;
+$('btn-logout2').onclick=doLogout;
 $('go-login').onclick=()=>{$('reg-form').style.display='none';$('login-form').style.display='block';};
 $('go-reg').onclick=()=>{$('login-form').style.display='none';$('reg-form').style.display='block';};
 
@@ -52,8 +54,8 @@ function connectSSE(){
   eventSource.onerror=()=>{setOnline(false);setTimeout(connectSSE,3000);};
 }
 function setOnline(on){
-  const d=$('sdot');if(d)d.classList.toggle('off',!on);
-  const s=$('stext');if(s)s.textContent=on?'Bot Status: ACTIVE':'Bot Status: OFFLINE';
+  [$('sdot'),$('sdot2')].forEach(d=>{if(d)d.classList.toggle('off',!on);});
+  [$('stext'),$('stext2')].forEach(s=>{if(s)s.textContent=on?'Bot Status: ACTIVE':'Bot Status: OFFLINE';});
 }
 
 // LOAD
@@ -225,24 +227,19 @@ function renderSettings(){$('my-token').textContent=TOKEN||'—';$('webhook-url'
 // ── Side menu ──
 function openMenu(){$('side-menu').classList.add('open');$('menu-overlay').classList.add('open');}
 function closeMenu(){$('side-menu').classList.remove('open');$('menu-overlay').classList.remove('open');}
-
-$('menu-btn').onclick=openMenu;
-$('menu-overlay').onclick=closeMenu;
-
 function goTab(name){
   document.querySelectorAll('.side-item').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
-  const active=document.querySelector(`.side-item[data-tab="${name}"]`);
+  const active=document.querySelector('.side-item[data-tab="'+name+'"]');
   if(active)active.classList.add('active');
-  $(`tab-${name}`).classList.add('active');
+  $('tab-'+name).classList.add('active');
   closeMenu();
   if(name==='stats')renderStats();
   if(name==='history')renderHistList();
 }
-
-document.querySelectorAll('.side-item').forEach(btn=>{
-  btn.onclick=()=>goTab(btn.dataset.tab);
-});
+$('menu-btn').onclick=openMenu;
+$('menu-overlay').onclick=closeMenu;
+document.querySelectorAll('.side-item').forEach(btn=>{btn.onclick=()=>goTab(btn.dataset.tab);});
 document.querySelectorAll('.per-btn').forEach(b=>{b.onclick=()=>{document.querySelectorAll('.per-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');renderStats();};});
 document.querySelectorAll('.filter-btn').forEach(b=>{b.onclick=()=>{document.querySelectorAll('.filter-btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');filterActive=b.dataset.f;renderHistList();};});
 $('back-stats').onclick=()=>goTab('dashboard');
