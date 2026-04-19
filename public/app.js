@@ -217,12 +217,6 @@ $('back-stats').onclick=()=>goHome();$('back-hist').onclick=()=>goHome();
 function goHome(){document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));document.querySelector('[data-tab="dashboard"]').classList.add('active');$('tab-dashboard').classList.add('active');}
 
 $('copy-wh').onclick=()=>{navigator.clipboard.writeText(`${window.location.origin}/webhook/${TOKEN}`).then(()=>toast('URL copiée !')).catch(()=>toast('Copié !'));};
-$('copy-token').onclick=()=>{navigator.clipboard.writeText(TOKEN||'').then(()=>toast('Token copié !')).catch(()=>toast(TOKEN));};
-
-$('submit-manual').onclick=async()=>{
-  const body={symbol:$('f-sym').value,direction:$('f-dir').value,entry:parseFloat($('f-entry').value)||null,lot:parseFloat($('f-lot').value)||null,sl:parseFloat($('f-sl').value)||null,tp1:parseFloat($('f-tp').value)||null,result:$('f-res').value,pnl:parseFloat($('f-pnl').value)||0};
-  try{await fetch(`${API}/api/${TOKEN}/trades`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});['f-entry','f-lot','f-sl','f-tp','f-pnl'].forEach(id=>$(id).value='');toast('Trade enregistré ✓');}catch{toast('Erreur réseau');}
-};
 
 // PUSH
 function b64ToU8(b64){const pad='='.repeat((4-b64.length%4)%4);const b=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from([...atob(b)].map(c=>c.charCodeAt(0)));}
