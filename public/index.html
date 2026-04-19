@@ -11,30 +11,59 @@
 <link rel="apple-touch-icon" href="/icon-192.png"/>
 <title>Aurora Trading</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/style.css"/>
 </head>
 <body>
-<div id="app">
-  <!-- Status bar spacer -->
+
+<!-- ══════════════════════════════════
+     AUTH SCREEN
+══════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-wrap">
+    <div class="auth-logo">⚡</div>
+    <div class="auth-title">AURORA</div>
+    <div class="auth-sub">Trading Dashboard</div>
+
+    <!-- Register form -->
+    <div id="register-form" class="auth-form">
+      <div class="auth-section-label">Créer un compte</div>
+      <input type="text" id="auth-name" placeholder="Ton pseudo" class="form-input" autocomplete="off"/>
+      <button class="submit-btn" id="btn-register">Créer mon compte</button>
+      <div class="auth-switch">Déjà un compte ? <span id="link-show-login" class="auth-link">Connexion</span></div>
+    </div>
+
+    <!-- Login form -->
+    <div id="login-form" class="auth-form" style="display:none">
+      <div class="auth-section-label">Connexion</div>
+      <input type="text" id="auth-token" placeholder="Colle ton token" class="form-input" autocomplete="off"/>
+      <button class="submit-btn" id="btn-login">Se connecter</button>
+      <div class="auth-switch">Pas de compte ? <span id="link-show-register" class="auth-link">Créer un compte</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     APP SCREEN
+══════════════════════════════════ -->
+<div id="app-screen" style="display:none">
   <div class="status-bar"></div>
 
-  <!-- Header -->
   <header class="header">
     <div class="header-left">
       <span class="logo">⚡</span>
       <div>
-        <div class="header-title">AURORA</div>
+        <div class="header-title">AURORA <span id="header-username" style="font-size:11px;opacity:0.6"></span></div>
         <div class="header-sub" id="header-sub">Connexion...</div>
       </div>
     </div>
     <div class="header-right">
       <div class="live-dot" id="live-dot"></div>
       <span class="live-label" id="live-label">OFFLINE</span>
+      <button id="btn-logout" class="logout-btn">✕</button>
     </div>
   </header>
 
-  <!-- Active Trade Banner -->
   <div class="active-banner" id="active-banner" style="display:none">
     <div class="active-banner-inner">
       <div class="active-dir" id="active-dir">▲ LONG</div>
@@ -44,7 +73,6 @@
     <div class="confirm-bar" id="confirm-bar"></div>
   </div>
 
-  <!-- Tabs -->
   <nav class="tabs">
     <button class="tab active" data-tab="dashboard">Dashboard</button>
     <button class="tab" data-tab="trades">Trades</button>
@@ -52,43 +80,23 @@
     <button class="tab" data-tab="settings">Réglages</button>
   </nav>
 
-  <!-- Content -->
   <main class="content">
 
     <!-- DASHBOARD -->
     <section id="tab-dashboard" class="tab-section active">
       <div class="day-grid">
-        <div class="day-card">
-          <div class="day-label">PnL du jour</div>
-          <div class="day-val" id="d-pnl">—</div>
-          <div class="day-sub" id="d-rr">—</div>
-        </div>
-        <div class="day-card">
-          <div class="day-label">Win rate</div>
-          <div class="day-val" id="d-wr">—</div>
-          <div class="day-sub" id="d-trades">0 trades</div>
-        </div>
+        <div class="day-card"><div class="day-label">PnL du jour</div><div class="day-val" id="d-pnl">—</div><div class="day-sub" id="d-rr">—</div></div>
+        <div class="day-card"><div class="day-label">Win rate</div><div class="day-val" id="d-wr">—</div><div class="day-sub" id="d-trades">0 trades</div></div>
       </div>
-
       <div class="day-grid">
-        <div class="day-card">
-          <div class="day-label">TP1 touchés</div>
-          <div class="day-val gold" id="d-tp">—</div>
-        </div>
-        <div class="day-card">
-          <div class="day-label">SL touchés</div>
-          <div class="day-val red" id="d-sl">—</div>
-        </div>
+        <div class="day-card"><div class="day-label">TP1 touchés</div><div class="day-val gold" id="d-tp">—</div></div>
+        <div class="day-card"><div class="day-label">SL touchés</div><div class="day-val red" id="d-sl">—</div></div>
       </div>
-
       <div class="section-title">TRADE ACTIF</div>
       <div id="no-active" class="empty-state">Aucun trade en cours</div>
       <div id="active-card" class="trade-card active-trade-card" style="display:none">
         <div class="tc-header">
-          <div>
-            <div class="tc-symbol" id="ac-symbol">NAS100</div>
-            <div class="tc-time" id="ac-time"></div>
-          </div>
+          <div><div class="tc-symbol" id="ac-symbol">NAS100</div><div class="tc-time" id="ac-time"></div></div>
           <span class="pill pill-active">EN COURS</span>
         </div>
         <div class="levels-row">
@@ -101,7 +109,6 @@
           <div class="tc-lot" id="ac-lot"></div>
         </div>
       </div>
-
       <div class="section-title">DERNIERS TRADES</div>
       <div id="recent-list"></div>
     </section>
@@ -115,7 +122,6 @@
         <button class="filter-btn" data-filter="today">Aujourd'hui</button>
       </div>
       <div id="trades-list"></div>
-
       <div class="section-title" style="margin-top:20px">SAISIE MANUELLE</div>
       <div class="manual-form">
         <div class="form-row">
@@ -149,10 +155,8 @@
         <div class="day-card"><div class="day-label">PnL total</div><div class="day-val" id="s-pnl">—</div></div>
         <div class="day-card"><div class="day-label">RR cumulé</div><div class="day-val" id="s-rr">—</div></div>
       </div>
-
       <div class="section-title">PAR SEMAINE</div>
       <div id="weekly-chart" class="weekly-chart"></div>
-
       <div class="section-title">RÉPARTITION</div>
       <div class="donut-wrap">
         <svg id="donut-svg" viewBox="0 0 120 120" width="120" height="120"></svg>
@@ -165,54 +169,52 @@
 
     <!-- SETTINGS -->
     <section id="tab-settings" class="tab-section">
-      <div class="section-title">CONNEXION WEBHOOK</div>
+      <div class="section-title">MON COMPTE</div>
       <div class="info-card">
-        <div class="info-label">URL Webhook TradingView</div>
-        <div class="webhook-url" id="webhook-url">https://votre-domaine.com/webhook</div>
-        <button class="copy-btn" id="copy-webhook">Copier</button>
+        <div class="info-label">Mon token (à garder secret)</div>
+        <div class="webhook-url" id="my-token">—</div>
+        <button class="copy-btn" id="copy-token">Copier le token</button>
+      </div>
+
+      <div class="section-title">WEBHOOK TRADINGVIEW</div>
+      <div class="info-card">
+        <div class="info-label">Mon URL webhook</div>
+        <div class="webhook-url" id="webhook-url">—</div>
+        <button class="copy-btn" id="copy-webhook">Copier l'URL</button>
       </div>
       <div class="info-card">
-        <div class="info-label">Payload attendu (BUY/SELL)</div>
+        <div class="info-label">Payload BUY/SELL</div>
         <pre class="code-block">{"action":"BUY","symbol":"{{ticker}}","lot":{{strategy.order.contracts}}}</pre>
       </div>
       <div class="info-card">
-        <div class="info-label">Payload attendu (CLOSE)</div>
+        <div class="info-label">Payload CLOSE</div>
         <pre class="code-block">{"action":"CLOSE_TP","symbol":"{{ticker}}"}</pre>
+      </div>
+
+      <div class="section-title">PARTAGER AVEC UN AMI</div>
+      <div class="info-card">
+        <div style="font-size:12px;color:var(--muted2);line-height:1.8">
+          Ton ami doit :<br/>
+          1. Ouvrir l'app sur son téléphone<br/>
+          2. Cliquer "Créer un compte"<br/>
+          3. Il reçoit son propre token<br/>
+          4. Mettre son token dans <strong>ses</strong> alertes TradingView<br/>
+          <br/>
+          Chacun voit uniquement ses propres trades.
+        </div>
       </div>
 
       <div class="section-title">NOTIFICATIONS PUSH</div>
       <div class="info-card">
-        <div class="info-label">Statut</div>
         <div id="push-status" style="font-size:13px;margin:8px 0;color:#aaa">Non activé</div>
         <button class="submit-btn" id="enable-push">Activer les notifications</button>
-      </div>
-
-      <div class="section-title">DÉPLOIEMENT</div>
-      <div class="info-card">
-        <ol class="deploy-steps">
-          <li>Dépose ce projet sur <strong>Railway</strong> ou <strong>Render</strong> (gratuit)</li>
-          <li>Copie l'URL publique → remplace dans l'alerte TradingView</li>
-          <li>Sur iPhone, ouvre l'app dans Safari → "Ajouter à l'écran d'accueil"</li>
-          <li>Active les notifications push</li>
-        </ol>
-      </div>
-
-      <div class="section-title">À PROPOS</div>
-      <div class="info-card">
-        <div style="font-size:12px;color:#666;line-height:1.7">
-          Aurora PWA v1.0<br/>
-          Script Pine Script v6 compatible<br/>
-          Webhook · SSE · Push notifications
-        </div>
       </div>
     </section>
 
   </main>
-
-  <!-- Toast -->
-  <div id="toast" class="toast"></div>
 </div>
 
+<div id="toast" class="toast"></div>
 <script src="/app.js"></script>
 </body>
 </html>
