@@ -18,8 +18,19 @@ function toast(msg,ms=2500){const t=$('toast');t.textContent=msg;t.classList.add
 function vib(p){if(navigator.vibrate)navigator.vibrate(p);}
 
 // AUTH
-function showAuth(){$('auth-screen').style.display='flex';$('app-screen').style.display='none';}
-function showApp(){$('auth-screen').style.display='none';$('app-screen').style.display='flex';}
+function showAuth(){
+  $('auth-screen').style.display='flex';
+  $('app-screen').style.display='none';
+  $('side-menu').style.display='none';
+  $('menu-overlay').style.display='none';
+}
+function showApp(){
+  $('auth-screen').style.display='none';
+  $('app-screen').style.display='flex';
+  $('side-menu').style.display='flex';
+  $('menu-overlay').style.display='block';
+  closeMenu();
+}
 $('btn-reg').onclick=async()=>{
   const name=$('auth-name').value.trim();if(!name){toast('Entre un pseudo');return;}
   try{const r=await fetch(`${API}/api/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
