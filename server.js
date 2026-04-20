@@ -151,12 +151,12 @@ app.post('/webhook/:token', async (req, res) => {
         pnl = body.pnl;
       } else {
         const t = user.activeTrade;
-        const entry = parseFloat(t.entry), sl = parseFloat(t.sl), tp1 = parseFloat(t.tp1), lot = parseFloat(t.lot);
-        if (entry && sl && tp1 && lot) {
-          const slDist = Math.abs(entry - sl);
-          const tpDist = Math.abs(entry - tp1);
-          const riskAmount = slDist * lot;
-          pnl = result === 'TP1' ? Math.round(tpDist * lot * 100) / 100 : -Math.round(riskAmount * 100) / 100;
+        const riskAmount = parseFloat(t.riskAmount);
+        const rr1 = parseFloat(t.rr1) || 1.0;
+        if (riskAmount && riskAmount > 0) {
+          pnl = result === 'TP1'
+            ? Math.round(riskAmount * rr1 * 100) / 100
+            : -Math.round(riskAmount * 100) / 100;
         } else {
           pnl = result === 'TP1' ? 100 : -100;
         }
