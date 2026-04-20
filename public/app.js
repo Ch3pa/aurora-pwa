@@ -247,6 +247,7 @@ function goTab(name){
   closeMenu();
   if(name==='stats')renderStats();
   if(name==='history')renderHistList();
+  if(name==='chart'){setTimeout(startChartRefresh,100);}else{stopChartRefresh();}
 }
 $('menu-btn').onclick=openMenu;
 $('menu-overlay').onclick=closeMenu;
@@ -264,3 +265,215 @@ function b64ToU8(b64){const pad='='.repeat((4-b64.length%4)%4);const b=(b64+pad)
 // INIT
 async function init(){if(!TOKEN){showAuth();return;}showApp();await regSW();await loadAll();renderAll();connectSSE();}
 init();
+
+// ── CHART TAB ──
+let chartInstance = null;
+let candleSeries = null;
+let entryLine = null, slLine = null, tpLine = null;
+let chartTF = 1; // minutes
+let chartRefreshTimer = null;
+let chartSymbol = 'NAS100';
+
+// Map common symbols to Yahoo Finance tickers
+const SYMBOL_MAP = {
+  'NAS100': 'NQ=F',
+  'NASDAQ': 'NQ=F',
+  'US100': 'NQ=F',
+  'SPX500': 'ES=F',
+  'SP500': 'ES=F',
+  'US30': 'YM=F',
+  'DOW': 'YM=F',
+  'XAUUSD': 'GC=F',
+  'GOLD': 'GC=F',
+  'EURUSD': 'EURUSD=X',
+  'GBPUSD': 'GBPUSD=X',
+  'USDJPY': 'USDJPY=X',
+  'BTCUSD': 'BTC-USD',
+  'ETHUSD': 'ETH-USD',
+};
+
+function getYahooTicker(sym) {
+  if (!sym) return 'NQ=F';
+  const up = sym.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return SYMBOL_MAP[up] || (up.includes('USD') ? up.replace('USD', '') + '-USD' : up);
+}
+
+function getYahooInterval(tf) {
+  if (tf <= 1) return { interval: '1m', range: '1d' };
+  if (tf <= 5) return { interval: '5m', range: '5d' };
+  if (tf <= 15) return { interval: '15m', range: '5d' };
+  return { interval: '60m', range: '1mo' };
+}
+
+async function fetchCandles(ticker, tf) {
+  const { interval, range } = getYahooInterval(tf);
+  const proxyUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=${interval}&range=${range}&includePrePost=false`;
+  // Use a CORS proxy since Yahoo blocks direct browser requests
+  const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(proxyUrl)}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('Fetch failed');
+  const data = await r.json();
+  const res = data?.chart?.result?.[0];
+  if (!res) throw new Error('No data');
+  const ts = res.timestamps || res.timestamp;
+  const q = res.indicators?.quote?.[0];
+  if (!ts || !q) throw new Error('Empty data');
+  const candles = [];
+  for (let i = 0; i < ts.length; i++) {
+    if (q.open[i] == null || q.close[i] == null) continue;
+    candles.push({
+      time: ts[i],
+      open: q.open[i],
+      high: q.high[i] || Math.max(q.open[i], q.close[i]),
+      low: q.low[i] || Math.min(q.open[i], q.close[i]),
+      close: q.close[i],
+    });
+  }
+  return candles;
+}
+
+function initChart() {
+  const container = $('chart-container');
+  if (!container) return;
+  if (chartInstance) { chartInstance.remove(); chartInstance = null; }
+  chartInstance = LightweightCharts.createChart(container, {
+    width: container.offsetWidth,
+    height: 340,
+    layout: { background: { color: '#0a0a18' }, textColor: 'rgba(255,255,255,0.5)' },
+    grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: 'rgba(255,255,255,0.08)', textColor: 'rgba(255,255,255,0.4)' },
+    timeScale: { borderColor: 'rgba(255,255,255,0.08)', timeVisible: true, secondsVisible: false },
+    handleScroll: true,
+    handleScale: true,
+  });
+  candleSeries = chartInstance.addCandlestickSeries({
+    upColor: '#00e676',
+    downColor: '#ff3355',
+    borderUpColor: '#00e676',
+    borderDownColor: '#ff3355',
+    wickUpColor: '#00e676',
+    wickDownColor: '#ff3355',
+  });
+  window.addEventListener('resize', () => {
+    if (chartInstance && container) chartInstance.applyOptions({ width: container.offsetWidth });
+  });
+}
+
+function setTradeLevels(trade) {
+  if (!candleSeries) return;
+  // Remove old lines
+  [entryLine, slLine, tpLine].forEach(l => { try { if (l) candleSeries.removePriceLine(l); } catch {} });
+  entryLine = slLine = tpLine = null;
+  if (!trade) return;
+  const entry = parseFloat(trade.entry);
+  const sl = parseFloat(trade.sl);
+  const tp = parseFloat(trade.tp1);
+  if (!isNaN(entry)) entryLine = candleSeries.createPriceLine({ price: entry, color: 'rgba(255,255,255,0.9)', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: 'Entry' });
+  if (!isNaN(sl)) slLine = candleSeries.createPriceLine({ price: sl, color: '#ff3355', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: 'SL' });
+  if (!isNaN(tp)) tpLine = candleSeries.createPriceLine({ price: tp, color: '#00e676', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: 'TP' });
+}
+
+function updateTradeInfoBar(trade, lastPrice) {
+  const infoDiv = $('chart-trade-info');
+  const noTradeDiv = $('chart-no-trade');
+  if (!trade) {
+    if (infoDiv) infoDiv.style.display = 'none';
+    if (noTradeDiv) noTradeDiv.style.display = 'block';
+    return;
+  }
+  if (infoDiv) infoDiv.style.display = 'flex';
+  if (noTradeDiv) noTradeDiv.style.display = 'none';
+  $('cti-entry').textContent = fmtP(trade.entry);
+  $('cti-sl').textContent = fmtP(trade.sl);
+  $('cti-tp').textContent = fmtP(trade.tp1);
+  if (lastPrice && trade.entry) {
+    const priceDiff = trade.direction === 'BUY' ? lastPrice - trade.entry : trade.entry - lastPrice;
+    const lotSize = trade.lot || 0;
+    const rawPnl = priceDiff * lotSize * 100;
+    const pnlEl = $('cti-pnl');
+    pnlEl.textContent = (rawPnl >= 0 ? '+€' : '-€') + Math.abs(rawPnl).toFixed(2);
+    pnlEl.className = 'cti-val ' + (rawPnl >= 0 ? 'green' : 'red');
+  } else {
+    $('cti-pnl').textContent = '—';
+    $('cti-pnl').className = 'cti-val';
+  }
+}
+
+async function loadChart() {
+  const trade = state.activeTrade;
+  const sym = trade?.symbol || 'NAS100';
+  chartSymbol = sym;
+  const ticker = getYahooTicker(sym);
+
+  // Update UI
+  const badge = $('chart-sym-badge');
+  if (badge) badge.textContent = sym;
+  const title = $('chart-title');
+  if (title) title.textContent = sym + ' · Chart';
+  const statusEl = $('chart-status-txt');
+  if (statusEl) statusEl.textContent = 'Chargement…';
+
+  if (!chartInstance) initChart();
+
+  try {
+    const candles = await fetchCandles(ticker, chartTF);
+    if (!candles.length) throw new Error('No candles');
+    candleSeries.setData(candles);
+    chartInstance.timeScale().fitContent();
+
+    // Update price display
+    const last = candles[candles.length - 1];
+    const prev = candles[candles.length - 2];
+    if (last) {
+      const priceEl = $('chart-price');
+      if (priceEl) priceEl.textContent = fmtP(last.close);
+      if (prev) {
+        const chg = last.close - prev.close;
+        const pct = (chg / prev.close * 100).toFixed(2);
+        const changeEl = $('chart-change');
+        if (changeEl) {
+          changeEl.textContent = (chg >= 0 ? '+' : '') + chg.toFixed(2) + ' (' + (chg >= 0 ? '+' : '') + pct + '%)';
+          changeEl.style.color = chg >= 0 ? 'var(--green)' : 'var(--red)';
+        }
+      }
+      updateTradeInfoBar(trade, last.close);
+    }
+
+    // Draw trade levels
+    setTradeLevels(trade);
+    if (statusEl) statusEl.textContent = 'Mis à jour ' + new Date().toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    if (statusEl) statusEl.textContent = 'Erreur chargement (' + e.message + ')';
+    console.warn('[Chart]', e);
+  }
+}
+
+function startChartRefresh() {
+  stopChartRefresh();
+  loadChart();
+  chartRefreshTimer = setInterval(loadChart, 60000); // refresh every 60s
+}
+function stopChartRefresh() {
+  if (chartRefreshTimer) { clearInterval(chartRefreshTimer); chartRefreshTimer = null; }
+}
+
+
+
+// Timeframe buttons
+document.addEventListener('DOMContentLoaded', () => {});
+// Attach tf buttons after DOM ready (they exist now)
+setTimeout(() => {
+  document.querySelectorAll('.tf-btn').forEach(b => {
+    b.onclick = () => {
+      document.querySelectorAll('.tf-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      chartTF = parseInt(b.dataset.tf);
+      loadChart();
+    };
+  });
+  const backChart = $('back-chart');
+  if (backChart) backChart.onclick = () => { stopChartRefresh(); goTab('dashboard'); };
+}, 200);
+
+
