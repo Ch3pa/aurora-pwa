@@ -229,3 +229,30 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 #app-screen[style*="display:none"] .menu-overlay,
 #app-screen[style*="display: none"] .side-menu,
 #app-screen[style*="display: none"] .menu-overlay { display:none !important; }
+
+/* ── CHART TAB ── */
+.chart-controls{padding:10px 14px 6px;background:var(--card);border-bottom:.5px solid var(--border)}
+.chart-sym-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.chart-sym-badge{font-family:var(--mono);font-size:14px;font-weight:700;color:#fff;background:rgba(100,50,255,0.18);border:1px solid rgba(100,50,255,0.35);border-radius:8px;padding:4px 12px;letter-spacing:1px}
+.chart-tf-row{display:flex;gap:4px}
+.tf-btn{font-size:10px;font-weight:700;font-family:var(--mono);padding:5px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--muted2);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.tf-btn.active{border-color:rgba(100,50,255,0.6);color:#aa66ff;background:rgba(100,50,255,0.14)}
+.chart-price-row{display:flex;align-items:baseline;gap:8px}
+.chart-current-price{font-family:var(--mono);font-size:20px;font-weight:700;color:#fff}
+.chart-price-change{font-family:var(--mono);font-size:11px;font-weight:700}
+
+.chart-trade-info{display:flex;align-items:center;justify-content:space-around;background:rgba(0,0,0,0.35);border-bottom:.5px solid var(--border);padding:8px 14px}
+.cti-item{display:flex;flex-direction:column;align-items:center;gap:2px}
+.cti-lbl{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.cti-val{font-family:var(--mono);font-size:12px;font-weight:700;color:#fff}
+.cti-sep{width:1px;height:28px;background:var(--border)}
+.chart-no-trade{text-align:center;font-size:11px;color:var(--muted);padding:8px 14px;background:rgba(0,0,0,0.2);border-bottom:.5px solid var(--border)}
+
+.chart-container{width:100%;height:340px;position:relative;background:#0a0a18}
+.chart-legend{display:flex;gap:16px;padding:8px 14px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted2);font-family:var(--mono)}
+.leg-dot{width:8px;height:8px;border-radius:50%}
+
+.chart-footer{display:flex;justify-content:space-between;align-items:center;padding:6px 14px 80px;font-size:10px}
+.chart-status{color:var(--muted);font-family:var(--mono)}
+.chart-source{color:rgba(255,255,255,0.15);font-size:9px}
