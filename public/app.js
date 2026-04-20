@@ -32,16 +32,24 @@ function showApp(){
   closeMenu();
 }
 $('btn-reg').onclick=async()=>{
-  const name=$('auth-name').value.trim();if(!name){toast('Entre un pseudo');return;}
-  try{const r=await fetch(`${API}/api/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+  const name=$('auth-name').value.trim();
+  const pw=$('auth-pw').value;
+  const pw2=$('auth-pw2').value;
+  if(!name){toast('Entre un pseudo');return;}
+  if(!pw||pw.length<6){toast('Mot de passe trop court (6 min)');return;}
+  if(pw!==pw2){toast('Les mots de passe ne correspondent pas');return;}
+  try{const r=await fetch(`${API}/api/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,password:pw})});
   const d=await r.json();if(!r.ok){toast(d.error||'Erreur');return;}
   localStorage.setItem('aurora_token',d.token);localStorage.setItem('aurora_name',d.name);
   TOKEN=d.token;USERNAME=d.name;showApp();await loadAll();connectSSE();}catch{toast('Erreur réseau');}
 };
 $('btn-login').onclick=async()=>{
-  const tok=$('auth-tok').value.trim();if(!tok){toast('Entre ton token');return;}
-  try{const r=await fetch(`${API}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:tok})});
-  const d=await r.json();if(!r.ok){toast(d.error||'Token invalide');return;}
+  const name=$('auth-login-name').value.trim();
+  const pw=$('auth-login-pw').value;
+  if(!name){toast('Entre ton pseudo');return;}
+  if(!pw){toast('Entre ton mot de passe');return;}
+  try{const r=await fetch(`${API}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,password:pw})});
+  const d=await r.json();if(!r.ok){toast(d.error||'Identifiants incorrects');return;}
   localStorage.setItem('aurora_token',d.token);localStorage.setItem('aurora_name',d.name);
   TOKEN=d.token;USERNAME=d.name;showApp();await loadAll();connectSSE();}catch{toast('Erreur réseau');}
 };
