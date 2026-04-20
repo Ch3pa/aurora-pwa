@@ -231,7 +231,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 #app-screen[style*="display: none"] .menu-overlay { display:none !important; }
 
 /* ── CHART TAB ── */
-.chart-tab-section{display:flex;flex-direction:column;padding:0}
+.chart-tab-section.active{display:flex;flex-direction:column;padding:0}
 
 /* Header */
 .ch-header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(10,10,24,0.95);border-bottom:.5px solid rgba(255,255,255,0.07);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);position:sticky;top:0;z-index:10}
