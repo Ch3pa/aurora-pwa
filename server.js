@@ -144,7 +144,23 @@ app.post('/webhook/:token', async (req, res) => {
   if (body.action === 'CLOSE_TP' || body.action === 'CLOSE_SL') {
     const result = body.action==='CLOSE_TP'?'TP1':'SL';
     if (user.activeTrade) {
-      const rr = result==='TP1'?1:-1, pnl = body.pnl||(result==='TP1'?100:-100);
+      const rr = result==='TP1'?1:-1;
+      // Calcul du pnl réel depuis entry/sl/tp1/lot stockés à l'entrée
+      let pnl;
+      if (body.pnl) {
+        pnl = body.pnl;
+      } else {
+        const t = user.activeTrade;
+        const entry = parseFloat(t.entry), sl = parseFloat(t.sl), tp1 = parseFloat(t.tp1), lot = parseFloat(t.lot);
+        if (entry && sl && tp1 && lot) {
+          const slDist = Math.abs(entry - sl);
+          const tpDist = Math.abs(entry - tp1);
+          const riskAmount = slDist * lot;
+          pnl = result === 'TP1' ? Math.round(tpDist * lot * 100) / 100 : -Math.round(riskAmount * 100) / 100;
+        } else {
+          pnl = result === 'TP1' ? 100 : -100;
+        }
+      }
       const closed = { ...user.activeTrade, result, pnl, rr, closedAt:now };
       user.trades.push(closed); user.activeTrade = null; saveDB();
       broadcast(user, 'close', { trade:closed, day:dayStats(user.trades) });
