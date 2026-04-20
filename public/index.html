@@ -25,13 +25,16 @@
     <div class="auth-tagline">AI TRADING SYSTEM</div>
     <div id="reg-form" class="auth-form">
       <div class="auth-lbl">Créer un compte</div>
-      <input type="text" id="auth-name" placeholder="Ton pseudo" class="auth-inp" autocomplete="off"/>
+      <input type="text" id="auth-name" placeholder="Ton pseudo" class="auth-inp" autocomplete="username"/>
+      <input type="password" id="auth-pw" placeholder="Mot de passe (6 caractères min)" class="auth-inp" autocomplete="new-password"/>
+      <input type="password" id="auth-pw2" placeholder="Confirmer le mot de passe" class="auth-inp" autocomplete="new-password"/>
       <button class="auth-btn" id="btn-reg">Créer mon compte</button>
       <div class="auth-switch">Déjà un compte ? <span id="go-login" class="auth-link">Se connecter</span></div>
     </div>
     <div id="login-form" class="auth-form" style="display:none">
       <div class="auth-lbl">Connexion</div>
-      <input type="text" id="auth-tok" placeholder="Colle ton token ici" class="auth-inp" autocomplete="off"/>
+      <input type="text" id="auth-login-name" placeholder="Ton pseudo" class="auth-inp" autocomplete="username"/>
+      <input type="password" id="auth-login-pw" placeholder="Mot de passe" class="auth-inp" autocomplete="current-password"/>
       <button class="auth-btn" id="btn-login">Se connecter</button>
       <div class="auth-switch">Pas de compte ? <span id="go-reg" class="auth-link">Créer un compte</span></div>
     </div>
