@@ -52,14 +52,17 @@ const saveDB = () => {
 
 const users = loadDB();
 
-const createUser = (name) => {
+const hashPassword = (pw) => crypto.createHash('sha256').update(pw + 'aurora_salt_v1').digest('hex');
+
+const createUser = (name, passwordHash) => {
   const token = crypto.randomBytes(16).toString('hex');
-  users[token] = { name, token, trades: [], activeTrade: null, subscribers: [], pushSubs: [] };
+  users[token] = { name, token, passwordHash, trades: [], activeTrade: null, subscribers: [], pushSubs: [] };
   saveDB();
   console.log(`[USER] Created "${name}" token: ${token}`);
   return users[token];
 };
 const getUser = (token) => users[token] || null;
+const getUserByName = (name) => Object.values(users).find(u => u.name.toLowerCase() === name.toLowerCase()) || null;
 
 // ── Stats ──
 const dayStats = (trades) => {
@@ -104,17 +107,26 @@ const auth = (req, res, next) => {
 app.get('/api/vapid-public-key', (req, res) => res.json({ key: VAPID_PUBLIC }));
 
 app.post('/api/register', (req, res) => {
-  const { name } = req.body;
-  if (!name) return res.status(400).json({ error: 'Nom requis' });
-  if (Object.values(users).find(u => u.name.toLowerCase() === name.toLowerCase()))
-    return res.status(409).json({ error: 'Nom déjà pris' });
-  const user = createUser(name);
+  const { name, password } = req.body;
+  if (!name || !password) return res.status(400).json({ error: 'Pseudo et mot de passe requis' });
+  if (password.length < 6) return res.status(400).json({ error: 'Mot de passe trop court (6 caractères min)' });
+  if (getUserByName(name)) return res.status(409).json({ error: 'Ce pseudo est déjà pris' });
+  const user = createUser(name, hashPassword(password));
   res.json({ token: user.token, name: user.name });
 });
 
 app.post('/api/login', (req, res) => {
-  const user = getUser(req.body.token);
-  if (!user) return res.status(401).json({ error: 'Token invalide' });
+  const { name, password } = req.body;
+  if (!name || !password) return res.status(400).json({ error: 'Pseudo et mot de passe requis' });
+  const user = getUserByName(name);
+  if (!user) return res.status(401).json({ error: 'Pseudo introuvable' });
+  // Support legacy accounts without password (first login sets the password)
+  if (!user.passwordHash) {
+    user.passwordHash = hashPassword(password);
+    saveDB();
+    return res.json({ token: user.token, name: user.name });
+  }
+  if (user.passwordHash !== hashPassword(password)) return res.status(401).json({ error: 'Mot de passe incorrect' });
   res.json({ token: user.token, name: user.name });
 });
 
@@ -144,23 +156,7 @@ app.post('/webhook/:token', async (req, res) => {
   if (body.action === 'CLOSE_TP' || body.action === 'CLOSE_SL') {
     const result = body.action==='CLOSE_TP'?'TP1':'SL';
     if (user.activeTrade) {
-      const rr = result==='TP1'?1:-1;
-      // Calcul du pnl réel depuis entry/sl/tp1/lot stockés à l'entrée
-      let pnl;
-      if (body.pnl) {
-        pnl = body.pnl;
-      } else {
-        const t = user.activeTrade;
-        const riskAmount = parseFloat(t.riskAmount);
-        const rr1 = parseFloat(t.rr1) || 1.0;
-        if (riskAmount && riskAmount > 0) {
-          pnl = result === 'TP1'
-            ? Math.round(riskAmount * rr1 * 100) / 100
-            : -Math.round(riskAmount * 100) / 100;
-        } else {
-          pnl = result === 'TP1' ? 100 : -100;
-        }
-      }
+      const rr = result==='TP1'?1:-1, pnl = body.pnl||(result==='TP1'?100:-100);
       const closed = { ...user.activeTrade, result, pnl, rr, closedAt:now };
       user.trades.push(closed); user.activeTrade = null; saveDB();
       broadcast(user, 'close', { trade:closed, day:dayStats(user.trades) });
