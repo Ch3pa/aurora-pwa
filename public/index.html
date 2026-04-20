@@ -13,6 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/style.css"/>
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
 
@@ -62,6 +63,7 @@
     </div>
     <div class="side-items">
       <button class="side-item active" data-tab="dashboard">⚡ &nbsp; Dashboard</button>
+      <button class="side-item" data-tab="chart">🕯️ &nbsp; Chart Live</button>
       <button class="side-item" data-tab="stats">📊 &nbsp; Statistics</button>
       <button class="side-item" data-tab="history">📋 &nbsp; Historique</button>
       <button class="side-item" data-tab="settings">⚙️ &nbsp; Réglages</button>
@@ -121,6 +123,55 @@
 
       <div class="sec-lbl" style="margin-top:14px">Derniers trades</div>
       <div id="recent-list"></div>
+    </section>
+
+    <!-- CHART LIVE -->
+    <section id="tab-chart" class="tab-section">
+      <div class="page-hdr"><button class="back-btn" id="back-chart">‹</button><span id="chart-title">Chart Live</span></div>
+
+      <!-- Symbol selector + timeframe -->
+      <div class="chart-controls">
+        <div class="chart-sym-row">
+          <div class="chart-sym-badge" id="chart-sym-badge">NAS100</div>
+          <div class="chart-tf-row">
+            <button class="tf-btn active" data-tf="1">1m</button>
+            <button class="tf-btn" data-tf="5">5m</button>
+            <button class="tf-btn" data-tf="15">15m</button>
+            <button class="tf-btn" data-tf="60">1h</button>
+          </div>
+        </div>
+        <div class="chart-price-row">
+          <span class="chart-current-price" id="chart-price">—</span>
+          <span class="chart-price-change" id="chart-change"></span>
+        </div>
+      </div>
+
+      <!-- Trade levels summary (shown when active trade) -->
+      <div id="chart-trade-info" class="chart-trade-info" style="display:none">
+        <div class="cti-item"><span class="cti-lbl">ENTRY</span><span class="cti-val" id="cti-entry">—</span></div>
+        <div class="cti-sep"></div>
+        <div class="cti-item"><span class="cti-lbl" style="color:var(--red)">SL</span><span class="cti-val red" id="cti-sl">—</span></div>
+        <div class="cti-sep"></div>
+        <div class="cti-item"><span class="cti-lbl" style="color:var(--green)">TP</span><span class="cti-val green" id="cti-tp">—</span></div>
+        <div class="cti-sep"></div>
+        <div class="cti-item"><span class="cti-lbl">PNL</span><span class="cti-val" id="cti-pnl">—</span></div>
+      </div>
+      <div id="chart-no-trade" class="chart-no-trade">Aucun trade actif · Les niveaux apparaîtront ici</div>
+
+      <!-- Candlestick chart container -->
+      <div id="chart-container" class="chart-container"></div>
+
+      <!-- Legend -->
+      <div class="chart-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#fff"></div><span>Entry</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--red)"></div><span>Stop Loss</span></div>
+        <div class="leg-item"><div class="leg-dot" style="background:var(--green)"></div><span>Take Profit</span></div>
+      </div>
+
+      <div class="chart-footer">
+        <span id="chart-status-txt" class="chart-status">Chargement…</span>
+        <span class="chart-source">via Yahoo Finance</span>
+      </div>
     </section>
 
     <!-- STATISTICS -->
