@@ -67,7 +67,8 @@ function connectSSE(){
   if(eventSource)eventSource.close();
   eventSource=new EventSource(`${API}/api/${TOKEN}/stream`);
   eventSource.addEventListener('state',e=>{const d=JSON.parse(e.data);state.activeTrade=d.activeTrade;state.day=d.day;state.recent=d.recent||[];setOnline(true);renderAll();});
-  eventSource.addEventListener('entry',e=>{const t=JSON.parse(e.data);state.activeTrade=t;renderBanner();renderActiveCard();renderDay();toast((t.direction==='BUY'?'▲ LONG':'▼ SHORT')+' — Entrée confirmée');vib([100,50,100]);});
+  eventSource.addEventListener('entry',e=>{const t=JSON.parse(e.data);state.activeTrade=t;renderBanner();renderActiveCard();renderDay();toast((t.direction==='BUY'?'▲ LONG':'▼ SHORT')+' — Ordre limite posé');vib([100,50,100]);});
+  eventSource.addEventListener('cancel',e=>{state.activeTrade=null;renderBanner();renderActiveCard();toast('⚠ Ordre limite annulé');vib([50]);});
   eventSource.addEventListener('close',e=>{const{trade,day}=JSON.parse(e.data);state.activeTrade=null;state.day=day;state.recent.unshift(trade);allTrades.unshift(trade);equityData=computeEquity(allTrades);renderAll();toast(trade.result==='TP1'?`✔ TP Atteint ${fmtEs(trade.pnl)}`:`✖ SL Touché ${fmtEs(trade.pnl)}`,3000);vib([200]);});
   eventSource.addEventListener('manual',e=>{const{trade,day}=JSON.parse(e.data);state.day=day;state.recent.unshift(trade);allTrades.unshift(trade);renderHistList();renderDay();toast('Trade ajouté');});
   eventSource.onerror=()=>{setOnline(false);setTimeout(connectSSE,3000);};
