@@ -65,6 +65,7 @@
     </div>
     <div class="side-items">
       <button class="side-item active" data-tab="dashboard">⚡ &nbsp; Dashboard</button>
+      <button class="side-item" data-tab="markets">💹 &nbsp; Markets</button>
       <button class="side-item" data-tab="stats">📊 &nbsp; Statistics</button>
       <button class="side-item" data-tab="history">📋 &nbsp; Historique</button>
       <button class="side-item" data-tab="settings">⚙️ &nbsp; Réglages</button>
@@ -123,6 +124,26 @@
 
       <div class="sec-lbl" style="margin-top:14px">Derniers trades</div>
       <div id="recent-list"></div>
+    </section>
+
+    <!-- MARKETS -->
+    <section id="tab-markets" class="tab-section">
+      <div class="page-hdr"><button class="back-btn" id="back-markets">‹</button><span>Markets</span></div>
+
+      <!-- Active trade MT5-style position -->
+      <div id="mk-position-wrap"></div>
+
+      <!-- Symbol search bar -->
+      <div class="mk-search-wrap">
+        <div class="mk-search-row">
+          <input type="text" id="mk-search-inp" class="mk-search-inp" placeholder="Ajouter un symbole… ex: BTCUSD" autocomplete="off" autocorrect="off" spellcheck="false"/>
+          <button class="mk-add-btn" id="mk-add-btn">+</button>
+        </div>
+      </div>
+
+      <!-- Watched symbols list -->
+      <div id="mk-list" class="mk-list"></div>
+      <div class="mk-hint">Les prix sont fournis par Binance (crypto) et Yahoo Finance (forex/indices).<br/>Touchez 🗑 pour retirer un actif.</div>
     </section>
 
     <!-- STATISTICS -->
