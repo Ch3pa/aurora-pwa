@@ -83,6 +83,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .pill-long{background:rgba(0,230,118,0.12);color:var(--green);border:.5px solid rgba(0,230,118,0.3)}
 .pill-short{background:rgba(255,51,85,0.12);color:var(--red);border:.5px solid rgba(255,51,85,0.3)}
 .pill-active{background:rgba(255,214,0,0.12);color:var(--gold);border:.5px solid rgba(255,214,0,0.3)}
+.pill-pending{background:rgba(100,149,255,0.12);color:#6495ff;border:.5px solid rgba(100,149,255,0.3)}
 
 /* TRADE ITEM — exact mockup style */
 .trade-item{margin:0 14px 0;background:var(--bg)}
@@ -140,6 +141,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .ab-dir{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1px}
 .ab-lvl{font-size:10px;color:var(--muted2)}
 .ab-lvl span{color:#fff}
+.ab-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.ab-status{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.5px}
 .ab-lot{font-family:var(--mono);font-size:10px;color:#aa66ff}
 
 /* BOTTOM NAV — exactly 3 icons like mockup */
