@@ -41,7 +41,7 @@ $('btn-reg').onclick=async()=>{
   try{const r=await fetch(`${API}/api/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,password:pw})});
   const d=await r.json();if(!r.ok){toast(d.error||'Erreur');return;}
   localStorage.setItem('aurora_token',d.token);localStorage.setItem('aurora_name',d.name);
-  TOKEN=d.token;USERNAME=d.name;showApp();await loadAll();connectSSE();}catch{toast('Erreur réseau');}
+  TOKEN=d.token;USERNAME=d.name;showApp();await loadAll();connectSSE();regSW();}catch{toast('Erreur réseau');}
 };
 $('btn-login').onclick=async()=>{
   const name=$('auth-login-name').value.trim();
@@ -51,7 +51,7 @@ $('btn-login').onclick=async()=>{
   try{const r=await fetch(`${API}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,password:pw})});
   const d=await r.json();if(!r.ok){toast(d.error||'Identifiants incorrects');return;}
   localStorage.setItem('aurora_token',d.token);localStorage.setItem('aurora_name',d.name);
-  TOKEN=d.token;USERNAME=d.name;showApp();await loadAll();connectSSE();}catch{toast('Erreur réseau');}
+  TOKEN=d.token;USERNAME=d.name;showApp();await loadAll();connectSSE();regSW();}catch{toast('Erreur réseau');}
 };
 function doLogout(){localStorage.removeItem('aurora_token');localStorage.removeItem('aurora_name');TOKEN=null;USERNAME=null;if(eventSource)eventSource.close();showAuth();}
 $('btn-logout').onclick=doLogout;
@@ -59,8 +59,43 @@ $('btn-logout2').onclick=doLogout;
 $('go-login').onclick=()=>{$('reg-form').style.display='none';$('login-form').style.display='block';};
 $('go-reg').onclick=()=>{$('login-form').style.display='none';$('reg-form').style.display='block';};
 
-// SW
-async function regSW(){if(!('serviceWorker'in navigator))return;try{await navigator.serviceWorker.register('/sw.js');}catch(e){console.warn(e);}}
+// SW + Push Notifications
+async function regSW(){
+  if(!('serviceWorker' in navigator))return;
+  try{
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    await navigator.serviceWorker.ready;
+
+    // Si pas de TOKEN (pas encore connecté), on s'arrête là
+    if(!TOKEN)return;
+
+    // Pas de support PushManager (vieux navigateur)
+    if(!('PushManager' in window)){console.warn('[PUSH] PushManager non supporté');return;}
+
+    // Demander la permission notifications
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted'){console.warn('[PUSH] Permission refusée');return;}
+
+    // Récupérer la clé VAPID publique
+    const vr = await fetch(`${API}/api/vapid-public-key`);
+    const {key} = await vr.json();
+    const appKey = Uint8Array.from(atob(key.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+
+    // Créer ou récupérer la souscription push
+    let sub = await reg.pushManager.getSubscription();
+    if(!sub){
+      sub = await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:appKey});
+    }
+
+    // Envoyer la souscription au serveur
+    await fetch(`${API}/api/${TOKEN}/push/subscribe`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-aurora-token':TOKEN},
+      body:JSON.stringify(sub)
+    });
+    console.log('[PUSH] Souscription enregistrée ✓');
+  }catch(e){console.warn('[SW/PUSH]',e);}
+}
 
 // SSE
 function connectSSE(){
