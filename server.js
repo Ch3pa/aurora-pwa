@@ -148,11 +148,19 @@ app.post('/webhook/:token', async (req, res) => {
   if (!body || !body.action) return res.status(400).json({ error: 'Invalid payload' });
   const now = new Date().toISOString();
 
-  if (body.action === 'BUY' || body.action === 'SELL') {
-    user.activeTrade = { id:crypto.randomUUID(), symbol:body.symbol||'NAS100', direction:body.action, lot:body.lot||0, entry:body.entry||null, sl:body.sl||null, tp1:body.tp1||null, timestamp:now, result:null, pnl:null, rr:null, confirmScore:body.confirmScore||null };
+  // BUY_LIMIT / SELL_LIMIT : ordre limite posé → afficher la position en attente
+  if (body.action === 'BUY_LIMIT' || body.action === 'SELL_LIMIT') {
+    const direction = body.action === 'BUY_LIMIT' ? 'BUY' : 'SELL';
+    user.activeTrade = { id:crypto.randomUUID(), symbol:body.symbol||'NAS100', direction, lot:body.lot||0, entry:body.entry||null, sl:body.sl||null, tp1:body.tp1||null, timestamp:now, result:null, pnl:null, rr:null, status:'pending' };
     broadcast(user, 'entry', user.activeTrade);
-    await sendPush(user, { title: body.action==='BUY'?'▲ LONG — Entrée confirmée':'▼ SHORT — Entrée confirmée', body:`${body.symbol||'NAS100'} · Lot ${body.lot||'—'}`, tag:'entry', icon:'/icon-192.png' });
   }
+
+  // CANCEL_LIMIT : signal opposé → effacer la position en attente
+  if (body.action === 'CANCEL_LIMIT') {
+    user.activeTrade = null;
+    broadcast(user, 'cancel', {});
+  }
+
   if (body.action === 'CLOSE_TP' || body.action === 'CLOSE_SL') {
     const result = body.action==='CLOSE_TP'?'TP1':'SL';
     if (user.activeTrade) {
@@ -160,7 +168,6 @@ app.post('/webhook/:token', async (req, res) => {
       const closed = { ...user.activeTrade, result, pnl, rr, closedAt:now };
       user.trades.push(closed); user.activeTrade = null; saveDB();
       broadcast(user, 'close', { trade:closed, day:dayStats(user.trades) });
-      await sendPush(user, { title:result==='TP1'?'✔ TP1 touché':'✖ SL touché', body:`${closed.symbol} · ${rr>0?'+':'-'}$${Math.abs(pnl)} · ${rr>0?'+':''}${rr}R`, tag:'close', icon:'/icon-192.png' });
     }
   }
   res.json({ ok: true });
