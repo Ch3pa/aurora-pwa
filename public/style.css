@@ -233,7 +233,72 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 #app-screen[style*="display: none"] .side-menu,
 #app-screen[style*="display: none"] .menu-overlay { display:none !important; }
 
-/* ── CHART TAB ── */
+/* ══════════════════ MARKETS TAB ══════════════════ */
+.mk-search-wrap{padding:0 14px 10px}
+.mk-search-row{display:flex;gap:8px;align-items:center}
+.mk-search-inp{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px 16px;color:#fff;font-family:var(--mono);font-size:13px;outline:none;letter-spacing:.5px}
+.mk-search-inp:focus{border-color:var(--accent1)}
+.mk-search-inp::placeholder{color:rgba(255,255,255,0.25);font-family:var(--sans);font-size:13px}
+.mk-add-btn{width:42px;height:42px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent1),var(--accent2));color:#fff;font-size:22px;font-weight:400;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 16px rgba(100,50,255,.4)}
+.mk-add-btn:active{transform:scale(0.93)}
+.mk-hint{font-size:10px;color:rgba(255,255,255,0.18);text-align:center;padding:6px 20px 80px;line-height:1.7}
+
+/* Symbol row */
+.mk-list{display:flex;flex-direction:column;padding:0 14px;gap:8px;margin-bottom:8px}
+.mk-row{background:var(--card);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;position:relative;overflow:hidden;transition:border-color .2s}
+.mk-row.has-trade{border-color:rgba(0,230,118,0.25);background:rgba(0,200,83,0.05)}
+.mk-row.has-trade-short{border-color:rgba(255,51,85,0.25);background:rgba(255,51,85,0.05)}
+.mk-row-left{flex:1;min-width:0}
+.mk-sym{font-family:var(--mono);font-size:14px;font-weight:700;color:#fff;letter-spacing:.5px}
+.mk-desc{font-size:10px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-price-block{text-align:right;flex-shrink:0}
+.mk-price{font-family:var(--mono);font-size:20px;font-weight:700;color:#fff;letter-spacing:-.5px;transition:color .3s}
+.mk-price.flash-up{color:var(--green)}
+.mk-price.flash-down{color:var(--red)}
+.mk-change{font-family:var(--mono);font-size:10px;font-weight:700;margin-top:2px}
+.mk-change.up{color:var(--green)}
+.mk-change.dn{color:var(--red)}
+.mk-del{background:none;border:none;color:rgba(255,255,255,0.2);font-size:14px;cursor:pointer;padding:4px;flex-shrink:0;-webkit-tap-highlight-color:transparent;transition:color .2s}
+.mk-del:active{color:var(--red)}
+.mk-loading{font-size:12px;color:var(--muted);font-family:var(--mono);text-align:center;padding:4px 0}
+
+/* Trade position band (MT5 style) */
+.mk-position{background:linear-gradient(135deg,rgba(0,200,83,0.08),rgba(0,0,0,0.1));border:1px solid rgba(0,230,118,0.2);border-radius:18px;margin:0 14px 10px;padding:14px 16px;overflow:hidden;position:relative}
+.mk-position.short{background:linear-gradient(135deg,rgba(255,51,85,0.08),rgba(0,0,0,0.1));border-color:rgba(255,51,85,0.25)}
+.mk-pos-glow{position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,rgba(0,230,118,0.12),transparent 70%);pointer-events:none}
+.mk-position.short .mk-pos-glow{background:radial-gradient(circle,rgba(255,51,85,0.12),transparent 70%)}
+.mk-pos-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.mk-pos-sym{font-family:var(--mono);font-size:15px;font-weight:700;color:#fff;letter-spacing:.5px}
+.mk-pos-badge{display:flex;align-items:center;gap:6px}
+.mk-pos-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite}
+.mk-position.short .mk-pos-dot{background:var(--red);box-shadow:0 0 6px var(--red)}
+.mk-pos-dir{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;color:var(--green)}
+.mk-position.short .mk-pos-dir{color:var(--red)}
+.mk-pos-live-price{font-family:var(--mono);font-size:28px;font-weight:700;color:#fff;letter-spacing:-.5px;margin-bottom:14px;transition:color .25s}
+.mk-pos-live-price.flash-up{color:var(--green)}
+.mk-pos-live-price.flash-down{color:var(--red)}
+/* Level grid */
+.mk-pos-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+.mk-pos-cell{background:rgba(255,255,255,0.04);border-radius:11px;padding:9px 10px;text-align:center}
+.mk-pos-cell-lbl{font-size:8px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-bottom:4px}
+.mk-pos-cell-val{font-family:var(--mono);font-size:12px;font-weight:700;color:#fff}
+.mk-pos-cell.sl .mk-pos-cell-val{color:var(--red)}
+.mk-pos-cell.tp .mk-pos-cell-val{color:var(--green)}
+.mk-pos-cell.live-cell .mk-pos-cell-val{color:#fff}
+/* Progress bar entry→tp / entry→sl */
+.mk-pos-progress{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.mk-prog-row{display:flex;align-items:center;gap:8px}
+.mk-prog-lbl{font-size:9px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;width:28px;text-align:right;flex-shrink:0}
+.mk-prog-track{flex:1;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden}
+.mk-prog-fill{height:100%;border-radius:3px;transition:width .5s ease}
+.mk-prog-pct{font-size:9px;font-family:var(--mono);width:32px;text-align:left;flex-shrink:0}
+/* Floating PnL */
+.mk-pos-pnl{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:.5px solid rgba(255,255,255,0.07)}
+.mk-pos-pnl-lbl{font-size:10px;color:var(--muted);letter-spacing:.5px}
+.mk-pos-pnl-val{font-family:var(--mono);font-size:14px;font-weight:700}
+.mk-pos-pnl-val.pos{color:var(--green)}
+.mk-pos-pnl-val.neg{color:var(--red)}
+
 .chart-tab-section.active{display:flex;flex-direction:column;padding:0}
 
 /* Header */
