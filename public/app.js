@@ -295,58 +295,167 @@ let mkWatchlist = JSON.parse(localStorage.getItem(MK_STORAGE_KEY)||'null') || [.
 let mkPrices = {}; // sym → {price, prev, change, changePct, desc}
 let mkInterval = null;
 
+// ── Classify symbol type ──
+function mkSymType(sym){
+  const s = sym.toUpperCase();
+  const cryptos = ['BTC','ETH','BNB','SOL','XRP','LTC','ADA','DOT','LINK','AVAX','DOGE','MATIC','UNI','ATOM','FTM','NEAR','APT','ARB','OP','INJ','TIA','SEI','SUI'];
+  const base = s.replace('USD','').replace('USDT','');
+  if(cryptos.includes(base)) return 'crypto';
+  if(['XAUUSD','XAGUSD','XPTUSD','XPDUSD'].includes(s)) return 'metal';
+  if(['NAS100','SPX500','US30','GER40','UK100','JPN225','AUS200','USTEC'].includes(s)) return 'index';
+  if(['USOIL','UKOIL','NGAS'].includes(s)) return 'commodity';
+  if(s.length===6 && !s.includes('XA')) return 'forex';
+  return 'other';
+}
+
 // ── Fetch price for one symbol ──
 async function mkFetchPrice(sym){
   const s = sym.toUpperCase().trim();
-  // Try Binance first for crypto/usdt pairs
-  const binanceSym = s.replace('USD','USDT');
+  const prev = mkPrices[s]?.price || null;
+  const type = mkSymType(s);
+
+  // ── 1. BINANCE — crypto ──
+  if(type === 'crypto'){
+    const binanceSym = s.endsWith('USDT') ? s : s.replace('USD','USDT');
+    try {
+      const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSym}`,{signal:AbortSignal.timeout(4000)});
+      if(r.ok){
+        const d = await r.json();
+        if(d.lastPrice && !d.code){
+          const price = parseFloat(d.lastPrice);
+          mkPrices[s] = {price, prev:prev||price, change:parseFloat(d.priceChange), changePct:parseFloat(d.priceChangePercent), desc:'Binance', src:'binance'};
+          return;
+        }
+      }
+    } catch {}
+    // Fallback: CoinGecko for crypto
+    try {
+      const cgId = mkCoinGeckoId(s);
+      if(cgId){
+        const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd&include_24hr_change=true`,{signal:AbortSignal.timeout(5000)});
+        if(r.ok){
+          const d = await r.json();
+          if(d[cgId]?.usd){
+            const price = d[cgId].usd;
+            const changePct = d[cgId].usd_24h_change || 0;
+            mkPrices[s] = {price, prev:prev||price, change:price*changePct/100, changePct, desc:'CoinGecko', src:'coingecko'};
+            return;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  // ── 2. METALS — or, argent ──
+  if(type === 'metal'){
+    // metals-api via allorigins CORS proxy
+    try {
+      const metalSym = s === 'XAUUSD' ? 'XAU' : s === 'XAGUSD' ? 'XAG' : s.slice(0,3);
+      const url = `https://api.metals.live/v1/spot/${metalSym.toLowerCase()}`;
+      const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,{signal:AbortSignal.timeout(6000)});
+      if(r.ok){
+        const wrapper = await r.json();
+        const data = JSON.parse(wrapper.contents);
+        if(Array.isArray(data) && data[0]?.price){
+          const price = parseFloat(data[0].price);
+          const prevClose = mkPrices[s]?.price || price;
+          const change = price - prevClose;
+          const changePct = prevClose ? (change/prevClose)*100 : 0;
+          mkPrices[s] = {price, prev:prev||price, change, changePct, desc:'Metals.live', src:'metals'};
+          return;
+        }
+      }
+    } catch {}
+    // Fallback: Yahoo Finance v7 (sometimes works with no cookie needed)
+    try {
+      const r = await fetch(`https://query2.finance.yahoo.com/v7/finance/quote?symbols=GC%3DF&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent`,{signal:AbortSignal.timeout(5000),headers:{'User-Agent':'Mozilla/5.0'}});
+      if(r.ok){
+        const d = await r.json();
+        const q = d?.quoteResponse?.result?.[0];
+        if(q?.regularMarketPrice){
+          const price = q.regularMarketPrice;
+          mkPrices[s] = {price, prev:prev||price, change:q.regularMarketChange||0, changePct:q.regularMarketChangePercent||0, desc:'Yahoo Finance', src:'yahoo'};
+          return;
+        }
+      }
+    } catch {}
+  }
+
+  // ── 3. FOREX — paires de devises ──
+  if(type === 'forex'){
+    try {
+      // ExchangeRate-API (gratuit, pas de clé requise pour les majeurs)
+      const base = s.slice(0,3);
+      const quote = s.slice(3,6);
+      const r = await fetch(`https://open.er-api.com/v6/latest/${base}`,{signal:AbortSignal.timeout(5000)});
+      if(r.ok){
+        const d = await r.json();
+        if(d.rates?.[quote]){
+          const price = d.rates[quote];
+          const prevClose = prev || price;
+          const change = price - prevClose;
+          const changePct = prevClose ? (change/prevClose)*100 : 0;
+          mkPrices[s] = {price, prev:prev||price, change, changePct, desc:'ExchangeRate-API', src:'er-api'};
+          return;
+        }
+      }
+    } catch {}
+    // Fallback Frankfurter (ECB data)
+    try {
+      const base = s.slice(0,3);
+      const quote = s.slice(3,6);
+      const r = await fetch(`https://api.frankfurter.app/latest?from=${base}&to=${quote}`,{signal:AbortSignal.timeout(5000)});
+      if(r.ok){
+        const d = await r.json();
+        if(d.rates?.[quote]){
+          const price = d.rates[quote];
+          const prevClose = prev || price;
+          const change = price - prevClose;
+          const changePct = prevClose ? (change/prevClose)*100 : 0;
+          mkPrices[s] = {price, prev:prev||price, change, changePct, desc:'Frankfurter · BCE', src:'frankfurter'};
+          return;
+        }
+      }
+    } catch {}
+  }
+
+  // ── 4. INDICES & COMMODITIES — Yahoo Finance v7 (meilleure version) ──
+  const yTicker = mkYahooTicker(s);
   try {
-    const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binanceSym}`,{signal:AbortSignal.timeout(4000)});
+    const r = await fetch(`https://query2.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(yTicker)}&fields=regularMarketPrice,regularMarketChange,regularMarketChangePercent,shortName`,{signal:AbortSignal.timeout(6000)});
     if(r.ok){
       const d = await r.json();
-      if(d.lastPrice){
-        const price = parseFloat(d.lastPrice);
-        const prev = mkPrices[s]?.price || price;
-        const change = parseFloat(d.priceChange);
-        const changePct = parseFloat(d.priceChangePercent);
-        mkPrices[s] = {price, prev, change, changePct, desc:'Binance · Crypto', src:'binance'};
+      const q = d?.quoteResponse?.result?.[0];
+      if(q?.regularMarketPrice){
+        const price = q.regularMarketPrice;
+        mkPrices[s] = {price, prev:prev||price, change:q.regularMarketChange||0, changePct:q.regularMarketChangePercent||0, desc:q.shortName||'Yahoo Finance', src:'yahoo'};
         return;
       }
     }
   } catch {}
-  // Yahoo Finance fallback (forex, indices, stocks)
-  try {
-    const yTicker = mkYahooTicker(s);
-    const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yTicker)}?interval=1m&range=1d`,{signal:AbortSignal.timeout(5000)});
-    if(r.ok){
-      const d = await r.json();
-      const meta = d?.chart?.result?.[0]?.meta;
-      if(meta?.regularMarketPrice){
-        const price = meta.regularMarketPrice;
-        const prev = mkPrices[s]?.price || price;
-        const prevClose = meta.chartPreviousClose || meta.previousClose || price;
-        const change = price - prevClose;
-        const changePct = prevClose ? ((change/prevClose)*100) : 0;
-        mkPrices[s] = {price, prev, change, changePct, desc: meta.fullExchangeName||'Yahoo Finance', src:'yahoo'};
-        return;
-      }
-    }
-  } catch {}
+
   // Keep last known or mark error
   if(!mkPrices[s]) mkPrices[s] = {price:null, prev:null, change:0, changePct:0, desc:'Indisponible', src:'err'};
+}
+
+function mkCoinGeckoId(sym){
+  const map = {'BTCUSD':'bitcoin','ETHUSD':'ethereum','BNBUSD':'binancecoin','SOLUSD':'solana',
+    'XRPUSD':'ripple','LTCUSD':'litecoin','ADAUSD':'cardano','DOTUSD':'polkadot',
+    'DOGEUSD':'dogecoin','AVAXUSD':'avalanche-2','LINKUSD':'chainlink','UNIUSD':'uniswap',
+    'MATICUSD':'matic-network','ATOMUSD':'cosmos','NEARUSD':'near'};
+  return map[sym] || null;
 }
 
 function mkYahooTicker(sym){
   const map = {
     'EURUSD':'EURUSD=X','GBPUSD':'GBPUSD=X','USDJPY':'USDJPY=X','AUDUSD':'AUDUSD=X','USDCHF':'USDCHF=X',
     'USDCAD':'USDCAD=X','NZDUSD':'NZDUSD=X','EURGBP':'EURGBP=X','EURJPY':'EURJPY=X','GBPJPY':'GBPJPY=X',
-    'XAUUSD':'GC=F','XAGUSD':'SI=F','USOIL':'CL=F','UKOIL':'BZ=F',
-    'NAS100':'^NDX','SPX500':'^GSPC','US30':'^DJI','GER40':'^GDAXI','UK100':'^FTSE',
-    'BTCUSD':'BTC-USD','ETHUSD':'ETH-USD','BNBUSD':'BNB-USD','SOLUSD':'SOL-USD','XRPUSD':'XRP-USD',
-    'LTCUSD':'LTC-USD','ADAUSD':'ADA-USD','DOTUSD':'DOT-USD','LNKUSD':'LINK-USD','AVAXUSD':'AVAX-USD',
-    'GUUSD': 'GU=X'
+    'XAUUSD':'GC=F','XAGUSD':'SI=F','USOIL':'CL=F','UKOIL':'BZ=F','NGAS':'NG=F',
+    'NAS100':'^NDX','USTEC':'^NDX','SPX500':'^GSPC','US30':'^DJI','GER40':'^GDAXI','UK100':'^FTSE',
+    'JPN225':'^N225','AUS200':'^AXJO',
+    'GUUSD':'GBPUSD=X'
   };
-  return map[sym] || (sym.endsWith('USD') && sym.length===6 ? sym.slice(0,3)+'-USD' : sym+'=X');
+  return map[sym] || sym+'=X';
 }
 
 function mkFmtPrice(p,sym){
