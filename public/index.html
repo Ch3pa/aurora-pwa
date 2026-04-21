@@ -13,7 +13,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/style.css"/>
-<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 </head>
 <body>
 
@@ -68,15 +67,13 @@
       <button class="side-item active" data-tab="dashboard">⚡ &nbsp; Dashboard</button>
       <button class="side-item" data-tab="stats">📊 &nbsp; Statistics</button>
       <button class="side-item" data-tab="history">📋 &nbsp; Historique</button>
-      <button class="side-item" data-tab="chart">🕯️ &nbsp; Chart Live</button>
       <button class="side-item" data-tab="settings">⚙️ &nbsp; Réglages</button>
     </div>
   </div>
 
-  <!-- Active trade banner -->
   <div class="active-banner" id="ab" style="display:none">
     <div><div class="ab-dir" id="ab-dir"></div><div class="ab-lvl" id="ab-lvl"></div></div>
-    <div class="ab-lot" id="ab-lot"></div>
+    <div class="ab-right"><div class="ab-status" id="ab-status-lbl"></div><div class="ab-lot" id="ab-lot"></div></div>
   </div>
 
   <main class="content">
@@ -114,7 +111,7 @@
       <div id="active-card" class="active-trade" style="display:none">
         <div class="at-hdr">
           <div><div class="at-sym" id="ac-sym">NAS100</div><div class="at-time" id="ac-time"></div></div>
-          <span class="pill pill-active">EN COURS</span>
+          <span class="pill" id="ac-status-pill">EN COURS</span>
         </div>
         <div class="at-lvls">
           <div class="at-lvl"><div class="at-lvl-l">ENTRY</div><div class="at-lvl-v" id="ac-e">—</div></div>
@@ -126,88 +123,6 @@
 
       <div class="sec-lbl" style="margin-top:14px">Derniers trades</div>
       <div id="recent-list"></div>
-    </section>
-
-    <!-- CHART LIVE -->
-    <section id="tab-chart" class="tab-section chart-tab-section">
-
-      <!-- ── CHART HEADER ── -->
-      <div class="ch-header">
-        <button class="ch-back" id="back-chart">‹</button>
-
-        <!-- Symbol pill — tap to change -->
-        <button class="ch-sym-btn" id="ch-sym-btn">
-          <span class="ch-sym-icon">◈</span>
-          <span class="ch-sym-name" id="chart-sym-badge">NAS100</span>
-          <span class="ch-sym-caret">⌄</span>
-        </button>
-
-        <!-- Price + change -->
-        <div class="ch-price-block">
-          <span class="ch-price" id="chart-price">—</span>
-          <span class="ch-change" id="chart-change"></span>
-        </div>
-      </div>
-
-      <!-- Symbol picker modal -->
-      <div class="sym-modal" id="sym-modal">
-        <div class="sym-modal-box">
-          <div class="sym-modal-title">Choisir un symbole</div>
-          <input class="sym-search" id="sym-search" type="text" placeholder="Rechercher (NAS100, GOLD…)" autocomplete="off"/>
-          <div class="sym-list" id="sym-list"></div>
-          <button class="sym-cancel" id="sym-cancel">Annuler</button>
-        </div>
-      </div>
-
-      <!-- Timeframe bar -->
-      <div class="ch-tf-bar">
-        <button class="tf-btn active" data-tf="1">1m</button>
-        <button class="tf-btn" data-tf="5">5m</button>
-        <button class="tf-btn" data-tf="15">15m</button>
-        <button class="tf-btn" data-tf="60">1h</button>
-        <button class="tf-btn" data-tf="240">4h</button>
-        <div class="ch-refresh-btn" id="ch-refresh-btn" title="Rafraîchir">↺</div>
-      </div>
-
-      <!-- Trade levels band -->
-      <div id="chart-trade-info" class="ch-levels-band" style="display:none">
-        <div class="ch-lvl">
-          <span class="ch-lvl-lbl">ENTRY</span>
-          <span class="ch-lvl-val" id="cti-entry">—</span>
-        </div>
-        <div class="ch-lvl-sep"></div>
-        <div class="ch-lvl ch-lvl-sl">
-          <span class="ch-lvl-lbl">SL</span>
-          <span class="ch-lvl-val red" id="cti-sl">—</span>
-        </div>
-        <div class="ch-lvl-sep"></div>
-        <div class="ch-lvl ch-lvl-tp">
-          <span class="ch-lvl-lbl">TP</span>
-          <span class="ch-lvl-val green" id="cti-tp">—</span>
-        </div>
-        <div class="ch-lvl-sep"></div>
-        <div class="ch-lvl">
-          <span class="ch-lvl-lbl">P&amp;L EST.</span>
-          <span class="ch-lvl-val" id="cti-pnl">—</span>
-        </div>
-      </div>
-      <div id="chart-no-trade" class="ch-no-trade">
-        <span class="ch-no-trade-icon">📡</span>
-        En attente d'un trade actif
-      </div>
-
-      <!-- Candlestick chart -->
-      <div id="chart-container" class="ch-canvas-wrap"></div>
-
-      <!-- Footer status -->
-      <div class="ch-footer">
-        <div class="ch-footer-left">
-          <span class="ch-status-dot" id="ch-status-dot"></span>
-          <span id="chart-status-txt" class="ch-status-txt">—</span>
-        </div>
-        <span class="ch-source">Yahoo Finance</span>
-      </div>
-
     </section>
 
     <!-- STATISTICS -->
