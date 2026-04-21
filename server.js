@@ -153,12 +153,18 @@ app.post('/webhook/:token', async (req, res) => {
     const direction = body.action === 'BUY_LIMIT' ? 'BUY' : 'SELL';
     user.activeTrade = { id:crypto.randomUUID(), symbol:body.symbol||'NAS100', direction, lot:body.lot||0, entry:body.entry||null, sl:body.sl||null, tp1:body.tp1||null, riskAmount:parseFloat(body.riskAmount)||null, rr1:parseFloat(body.rr1)||1, timestamp:now, result:null, pnl:null, rr:null, status:'pending' };
     broadcast(user, 'entry', user.activeTrade);
+    await sendPush(user, {
+      title: (direction==='BUY' ? '▲ LONG' : '▼ SHORT') + ' — ' + (body.symbol||'NAS100'),
+      body: `Ordre limite posé @ ${body.entry || '—'} · SL ${body.sl || '—'} · TP ${body.tp1 || '—'}`,
+      tag: 'aurora-entry'
+    });
   }
 
   // CANCEL_LIMIT : signal opposé → effacer la position en attente
   if (body.action === 'CANCEL_LIMIT') {
     user.activeTrade = null;
     broadcast(user, 'cancel', {});
+    await sendPush(user, { title: '⚠ Ordre annulé', body: 'Signal inversé — ordre limite supprimé', tag: 'aurora-cancel' });
   }
 
   if (body.action === 'CLOSE_TP' || body.action === 'CLOSE_SL') {
@@ -177,6 +183,11 @@ app.post('/webhook/:token', async (req, res) => {
       const closed = { ...user.activeTrade, result, pnl:Math.round(pnl*100)/100, rr, closedAt:now };
       user.trades.push(closed); user.activeTrade = null; saveDB();
       broadcast(user, 'close', { trade:closed, day:dayStats(user.trades) });
+      await sendPush(user, {
+        title: result==='TP1' ? '✔ TP Atteint !' : '✖ SL Touché',
+        body: `${closed.symbol} · ${pnl >= 0 ? '+' : ''}${Math.round(pnl*100)/100} $`,
+        tag: 'aurora-close'
+      });
     }
   }
   res.json({ ok: true });
