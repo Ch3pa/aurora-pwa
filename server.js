@@ -151,7 +151,7 @@ app.post('/webhook/:token', async (req, res) => {
   // BUY_LIMIT / SELL_LIMIT : ordre limite posé → afficher la position en attente
   if (body.action === 'BUY_LIMIT' || body.action === 'SELL_LIMIT') {
     const direction = body.action === 'BUY_LIMIT' ? 'BUY' : 'SELL';
-    user.activeTrade = { id:crypto.randomUUID(), symbol:body.symbol||'NAS100', direction, lot:body.lot||0, entry:body.entry||null, sl:body.sl||null, tp1:body.tp1||null, timestamp:now, result:null, pnl:null, rr:null, status:'pending' };
+    user.activeTrade = { id:crypto.randomUUID(), symbol:body.symbol||'NAS100', direction, lot:body.lot||0, entry:body.entry||null, sl:body.sl||null, tp1:body.tp1||null, riskAmount:parseFloat(body.riskAmount)||null, rr1:parseFloat(body.rr1)||1, timestamp:now, result:null, pnl:null, rr:null, status:'pending' };
     broadcast(user, 'entry', user.activeTrade);
   }
 
@@ -164,8 +164,17 @@ app.post('/webhook/:token', async (req, res) => {
   if (body.action === 'CLOSE_TP' || body.action === 'CLOSE_SL') {
     const result = body.action==='CLOSE_TP'?'TP1':'SL';
     if (user.activeTrade) {
-      const rr = result==='TP1'?1:-1, pnl = body.pnl||(result==='TP1'?100:-100);
-      const closed = { ...user.activeTrade, result, pnl, rr, closedAt:now };
+      const rr = result==='TP1'?1:-1;
+      // Priorité : pnl envoyé par le webhook, sinon calcul depuis riskAmount du trade
+      let pnl;
+      if (body.pnl != null && body.pnl !== 0) {
+        pnl = parseFloat(body.pnl);
+      } else if (user.activeTrade.riskAmount) {
+        pnl = result==='TP1' ? user.activeTrade.riskAmount * (user.activeTrade.rr1||1) : -user.activeTrade.riskAmount;
+      } else {
+        pnl = result==='TP1' ? 100 : -100;
+      }
+      const closed = { ...user.activeTrade, result, pnl:Math.round(pnl*100)/100, rr, closedAt:now };
       user.trades.push(closed); user.activeTrade = null; saveDB();
       broadcast(user, 'close', { trade:closed, day:dayStats(user.trades) });
     }
