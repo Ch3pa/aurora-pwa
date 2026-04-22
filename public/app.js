@@ -86,6 +86,7 @@ function connectSSE(){
   eventSource=new EventSource(`${API}/api/${TOKEN}/stream`);
   eventSource.addEventListener('state',e=>{const d=JSON.parse(e.data);state.activeTrade=d.activeTrade;state.day=d.day;state.recent=d.recent||[];setOnline(true);renderAll();});
   eventSource.addEventListener('entry',e=>{const t=JSON.parse(e.data);state.activeTrade=t;renderBanner();renderActivePosition();renderDay();toast((t.direction==='BUY'?'▲ LONG':'▼ SHORT')+' — Ordre limite posé');vib([100,50,100]);});
+  eventSource.addEventListener('activate',e=>{const t=JSON.parse(e.data);state.activeTrade=t;renderBanner();renderActivePosition();toast((t.direction==='BUY'?'▲ LONG':'▼ SHORT')+' — Ordre activé');vib([150,50,150]);});
   eventSource.addEventListener('cancel',e=>{state.activeTrade=null;renderBanner();renderActivePosition();toast('⚠ Ordre limite annulé');vib([50]);});
   eventSource.addEventListener('close',e=>{const{trade,day}=JSON.parse(e.data);state.activeTrade=null;state.day=day;state.recent.unshift(trade);allTrades.unshift(trade);equityData=computeEquity(allTrades);renderAll();toast(trade.result==='TP1'?`✔ TP Atteint ${fmtEs(trade.pnl)}`:`✖ SL Touché ${fmtEs(trade.pnl)}`,3000);vib([200]);});
   eventSource.addEventListener('manual',e=>{const{trade,day}=JSON.parse(e.data);state.day=day;state.recent.unshift(trade);allTrades.unshift(trade);renderHistList();renderDay();toast('Trade ajouté');});
@@ -173,33 +174,10 @@ function mkFmtPrice(p,sym){
 async function fetchLivePrice(sym){
   const s=(sym||'').toUpperCase().trim();
   const prev=_livePrices[s]||null;
-
-  // Crypto → Binance
-  const cryptoBases=new Set(['BTC','ETH','BNB','SOL','XRP','LTC','ADA','DOT','LINK','AVAX','DOGE','MATIC']);
-  const base=s.replace(/USDT?$/,'');
-  if(cryptoBases.has(base)){
-    try{
-      const r=await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${s.replace(/USD$/,'USDT')}`,{signal:AbortSignal.timeout(4000)});
-      if(r.ok){const d=await r.json();if(d.price){_livePrices[s]={price:parseFloat(d.price),prev};return;}}
-    }catch{}
-  }
-  // Métaux
-  if(['XAUUSD','XAGUSD'].includes(s)){
-    try{
-      const name=s==='XAUUSD'?'gold':'silver';
-      const r=await fetch(`https://api.metals.live/v1/spot/${name}`,{signal:AbortSignal.timeout(5000)});
-      if(r.ok){const d=await r.json();const raw=Array.isArray(d)?d[0]:d;if(raw?.price){_livePrices[s]={price:parseFloat(raw.price),prev};return;}}
-    }catch{}
-  }
-  // Yahoo (indices, forex, tout le reste)
-  const yMap={'NAS100':'^NDX','USTEC':'^NDX','SPX500':'^GSPC','US30':'^DJI','GER40':'^GDAXI','UK100':'^FTSE','JPN225':'^N225','USOIL':'CL=F','UKOIL':'BZ=F'};
-  const yTicker=yMap[s]||(s.length===6&&!cryptoBases.has(base)?s+'=X':null);
-  if(yTicker){
-    try{
-      const r=await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yTicker)}?interval=1d&range=1d`,{signal:AbortSignal.timeout(6000)});
-      if(r.ok){const d=await r.json();const meta=d?.chart?.result?.[0]?.meta;if(meta?.regularMarketPrice){_livePrices[s]={price:meta.regularMarketPrice,prev};return;}}
-    }catch{}
-  }
+  try{
+    const r=await fetch(`${API}/api/price/${encodeURIComponent(s)}`,{signal:AbortSignal.timeout(7000)});
+    if(r.ok){const d=await r.json();if(d.price){_livePrices[s]={price:parseFloat(d.price),prev};return;}}
+  }catch{}
 }
 
 function renderActivePosition(){
