@@ -51,7 +51,7 @@ $('btn-login').onclick=async()=>{
   try{const r=await fetch(`${API}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,password:pw})});
   const d=await r.json();if(!r.ok){toast(d.error||'Identifiants incorrects');return;}
   localStorage.setItem('aurora_token',d.token);localStorage.setItem('aurora_name',d.name);
-  TOKEN=d.token;USERNAME=d.name;showApp();await loadAll();connectSSE();regSW();}catch{toast('Erreur réseau');}
+  TOKEN=d.token;USERNAME=d.name;showApp();await loadAll();renderAll();connectSSE();regSW();}catch{toast('Erreur réseau');}
 };
 function doLogout(){localStorage.removeItem('aurora_token');localStorage.removeItem('aurora_name');TOKEN=null;USERNAME=null;if(eventSource)eventSource.close();showAuth();}
 $('btn-logout').onclick=doLogout;
@@ -59,41 +59,24 @@ $('btn-logout2').onclick=doLogout;
 $('go-login').onclick=()=>{$('reg-form').style.display='none';$('login-form').style.display='block';};
 $('go-reg').onclick=()=>{$('login-form').style.display='none';$('reg-form').style.display='block';};
 
-// SW + Push Notifications
+// SW + Push
 async function regSW(){
   if(!('serviceWorker' in navigator))return;
   try{
-    const reg = await navigator.serviceWorker.register('/sw.js');
+    const reg=await navigator.serviceWorker.register('/sw.js');
     await navigator.serviceWorker.ready;
-
-    // Si pas de TOKEN (pas encore connecté), on s'arrête là
     if(!TOKEN)return;
-
-    // Pas de support PushManager (vieux navigateur)
     if(!('PushManager' in window)){console.warn('[PUSH] PushManager non supporté');return;}
-
-    // Demander la permission notifications
-    const perm = await Notification.requestPermission();
-    if(perm !== 'granted'){console.warn('[PUSH] Permission refusée');return;}
-
-    // Récupérer la clé VAPID publique
-    const vr = await fetch(`${API}/api/vapid-public-key`);
-    const {key} = await vr.json();
-    const appKey = Uint8Array.from(atob(key.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
-
-    // Créer ou récupérer la souscription push
-    let sub = await reg.pushManager.getSubscription();
-    if(!sub){
-      sub = await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:appKey});
-    }
-
-    // Envoyer la souscription au serveur
-    await fetch(`${API}/api/${TOKEN}/push/subscribe`,{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-aurora-token':TOKEN},
-      body:JSON.stringify(sub)
-    });
+    const perm=await Notification.requestPermission();
+    if(perm!=='granted'){console.warn('[PUSH] Permission refusée');return;}
+    const vr=await fetch(`${API}/api/vapid-public-key`);
+    const {key}=await vr.json();
+    const appKey=Uint8Array.from(atob(key.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:appKey});}
+    await fetch(`${API}/api/${TOKEN}/push/subscribe`,{method:'POST',headers:{'Content-Type':'application/json','x-aurora-token':TOKEN},body:JSON.stringify(sub)});
     console.log('[PUSH] Souscription enregistrée ✓');
+    $('push-status').textContent='✓ Notifications activées';
   }catch(e){console.warn('[SW/PUSH]',e);}
 }
 
@@ -102,8 +85,8 @@ function connectSSE(){
   if(eventSource)eventSource.close();
   eventSource=new EventSource(`${API}/api/${TOKEN}/stream`);
   eventSource.addEventListener('state',e=>{const d=JSON.parse(e.data);state.activeTrade=d.activeTrade;state.day=d.day;state.recent=d.recent||[];setOnline(true);renderAll();});
-  eventSource.addEventListener('entry',e=>{const t=JSON.parse(e.data);state.activeTrade=t;renderBanner();renderActiveCard();renderDay();toast((t.direction==='BUY'?'▲ LONG':'▼ SHORT')+' — Ordre limite posé');vib([100,50,100]);});
-  eventSource.addEventListener('cancel',e=>{state.activeTrade=null;renderBanner();renderActiveCard();toast('⚠ Ordre limite annulé');vib([50]);});
+  eventSource.addEventListener('entry',e=>{const t=JSON.parse(e.data);state.activeTrade=t;renderBanner();renderActivePosition();renderDay();toast((t.direction==='BUY'?'▲ LONG':'▼ SHORT')+' — Ordre limite posé');vib([100,50,100]);});
+  eventSource.addEventListener('cancel',e=>{state.activeTrade=null;renderBanner();renderActivePosition();toast('⚠ Ordre limite annulé');vib([50]);});
   eventSource.addEventListener('close',e=>{const{trade,day}=JSON.parse(e.data);state.activeTrade=null;state.day=day;state.recent.unshift(trade);allTrades.unshift(trade);equityData=computeEquity(allTrades);renderAll();toast(trade.result==='TP1'?`✔ TP Atteint ${fmtEs(trade.pnl)}`:`✖ SL Touché ${fmtEs(trade.pnl)}`,3000);vib([200]);});
   eventSource.addEventListener('manual',e=>{const{trade,day}=JSON.parse(e.data);state.day=day;state.recent.unshift(trade);allTrades.unshift(trade);renderHistList();renderDay();toast('Trade ajouté');});
   eventSource.onerror=()=>{setOnline(false);setTimeout(connectSSE,3000);};
@@ -121,7 +104,7 @@ async function loadAll(){
 function computeEquity(trades){const s=[...trades].sort((a,b)=>new Date(a.timestamp)-new Date(b.timestamp));let run=0;return s.map(t=>{run+=t.pnl||0;return run;});}
 
 // RENDER
-function renderAll(){renderDay();renderBanner();renderActiveCard();renderRecentList();renderHistList();renderStats();renderSettings();}
+function renderAll(){renderDay();renderBanner();renderActivePosition();renderRecentList();renderHistList();renderStats();renderSettings();}
 
 function renderDay(){
   const d=state.day,pnl=d.pnl||0,wr=d.wr||0;
@@ -135,7 +118,6 @@ function renderDay(){
 
 function drawEquity(){
   const c=$('eq-canvas');if(!c)return;
-  // Wait for layout if width not ready
   const W=c.parentElement?c.parentElement.offsetWidth-36:300;
   const H=90;const dpr=window.devicePixelRatio||1;
   c.width=Math.round(W*dpr);c.height=Math.round(H*dpr);
@@ -143,38 +125,19 @@ function drawEquity(){
   const ctx=c.getContext('2d');
   ctx.scale(dpr,dpr);
   ctx.clearRect(0,0,W,H);
-  // Use real equity data or demo rising curve
   const data=equityData.length>=2?equityData:[0,2,1,4,3,7,5,9,8,12,10,15,13,18,16,21,20,25,23,28,27,32,30,36,34,40,38,44,42,48,50];
   const mn=Math.min(...data),mx=Math.max(...data,mn+1),range=mx-mn;
   const pad=4;
-  const pts=data.map((v,i)=>({
-    x:pad+i/(data.length-1)*(W-pad*2),
-    y:H-pad-((v-mn)/range)*(H-pad*2-8)
-  }));
-  // Smooth curve using bezier
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x,H);
-  ctx.lineTo(pts[0].x,pts[0].y);
-  for(let i=1;i<pts.length;i++){
-    const mx2=(pts[i-1].x+pts[i].x)/2;
-    ctx.bezierCurveTo(mx2,pts[i-1].y,mx2,pts[i].y,pts[i].x,pts[i].y);
-  }
-  ctx.lineTo(pts[pts.length-1].x,H);
-  ctx.closePath();
-  const g=ctx.createLinearGradient(0,0,0,H);
-  g.addColorStop(0,'rgba(0,230,118,0.3)');
-  g.addColorStop(1,'rgba(0,230,118,0.0)');
+  const pts=data.map((v,i)=>({x:pad+i/(data.length-1)*(W-pad*2),y:H-pad-((v-mn)/range)*(H-pad*2-8)}));
+  ctx.beginPath();ctx.moveTo(pts[0].x,H);ctx.lineTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++){const mx2=(pts[i-1].x+pts[i].x)/2;ctx.bezierCurveTo(mx2,pts[i-1].y,mx2,pts[i].y,pts[i].x,pts[i].y);}
+  ctx.lineTo(pts[pts.length-1].x,H);ctx.closePath();
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'rgba(0,230,118,0.3)');g.addColorStop(1,'rgba(0,230,118,0.0)');
   ctx.fillStyle=g;ctx.fill();
-  // Line
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x,pts[0].y);
-  for(let i=1;i<pts.length;i++){
-    const mx2=(pts[i-1].x+pts[i].x)/2;
-    ctx.bezierCurveTo(mx2,pts[i-1].y,mx2,pts[i].y,pts[i].x,pts[i].y);
-  }
+  ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++){const mx2=(pts[i-1].x+pts[i].x)/2;ctx.bezierCurveTo(mx2,pts[i-1].y,mx2,pts[i].y,pts[i].x,pts[i].y);}
   ctx.strokeStyle='#00e676';ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();
 }
-// Redraw on resize
 window.addEventListener('resize',()=>{if(TOKEN)drawEquity();});
 
 function renderBanner(){
@@ -190,24 +153,179 @@ function renderBanner(){
   $('ab-lot').textContent=t.lot?t.lot.toFixed(3)+' lots':'';
 }
 
-function renderActiveCard(){
-  const t=state.activeTrade;
-  if(!t){$('active-card').style.display='none';$('no-active').style.display='block';return;}
-  $('active-card').style.display='block';$('no-active').style.display='none';
-  const isPending=t.status==='pending';
-  $('ac-sym').innerHTML=(t.symbol||'NAS100')+' <span class="pill '+(t.direction==='BUY'?'pill-long':'pill-short')+'">'+(t.direction==='BUY'?'LONG':'SHORT')+'</span>';
-  $('ac-time').textContent=fmtT(t.timestamp);
-  $('ac-e').textContent=fmtP(t.entry);$('ac-sl').textContent=fmtP(t.sl);$('ac-tp').textContent=fmtP(t.tp1);
-  $('ac-lot').textContent=t.lot?t.lot.toFixed(3)+' lots':'';
-  const sc=t.confirmScore||0;$('ac-dots').innerHTML=[0,1,2].map(i=>`<div class="cdot ${i<sc?'on':''}"></div>`).join('');
-  const pill=$('ac-status-pill');
-  if(pill){
-    if(isPending){pill.textContent='⏳ LIMITE PLACÉE';pill.className='pill pill-pending';}
-    else{pill.textContent='EN COURS';pill.className='pill pill-active';}
+// ── CARTE POSITION (déplacée du Markets vers le Dashboard) ──
+// Affiche la position active avec barres de progression TP% et SL%
+// basées sur le prix live (polling léger sur le symbole actif uniquement)
+let _posInterval=null;
+let _livePrices={};
+
+function mkFmtPrice(p,sym){
+  if(p===null||p===undefined)return'—';
+  const s=(sym||'').toUpperCase();
+  if(s.includes('JPY'))return p.toFixed(3);
+  if(p>=10000)return p.toFixed(1);
+  if(p>=1000)return p.toFixed(2);
+  if(p>=10)return p.toFixed(4);
+  if(p>=0.1)return p.toFixed(5);
+  return p.toFixed(6);
+}
+
+async function fetchLivePrice(sym){
+  const s=(sym||'').toUpperCase().trim();
+  const prev=_livePrices[s]||null;
+
+  // Crypto → Binance
+  const cryptoBases=new Set(['BTC','ETH','BNB','SOL','XRP','LTC','ADA','DOT','LINK','AVAX','DOGE','MATIC']);
+  const base=s.replace(/USDT?$/,'');
+  if(cryptoBases.has(base)){
+    try{
+      const r=await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${s.replace(/USD$/,'USDT')}`,{signal:AbortSignal.timeout(4000)});
+      if(r.ok){const d=await r.json();if(d.price){_livePrices[s]={price:parseFloat(d.price),prev};return;}}
+    }catch{}
+  }
+  // Métaux
+  if(['XAUUSD','XAGUSD'].includes(s)){
+    try{
+      const name=s==='XAUUSD'?'gold':'silver';
+      const r=await fetch(`https://api.metals.live/v1/spot/${name}`,{signal:AbortSignal.timeout(5000)});
+      if(r.ok){const d=await r.json();const raw=Array.isArray(d)?d[0]:d;if(raw?.price){_livePrices[s]={price:parseFloat(raw.price),prev};return;}}
+    }catch{}
+  }
+  // Yahoo (indices, forex, tout le reste)
+  const yMap={'NAS100':'^NDX','USTEC':'^NDX','SPX500':'^GSPC','US30':'^DJI','GER40':'^GDAXI','UK100':'^FTSE','JPN225':'^N225','USOIL':'CL=F','UKOIL':'BZ=F'};
+  const yTicker=yMap[s]||(s.length===6&&!cryptoBases.has(base)?s+'=X':null);
+  if(yTicker){
+    try{
+      const r=await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yTicker)}?interval=1d&range=1d`,{signal:AbortSignal.timeout(6000)});
+      if(r.ok){const d=await r.json();const meta=d?.chart?.result?.[0]?.meta;if(meta?.regularMarketPrice){_livePrices[s]={price:meta.regularMarketPrice,prev};return;}}
+    }catch{}
   }
 }
 
-// Trade item HTML — exactly like mockup
+function renderActivePosition(){
+  const wrap=$('active-position-wrap');
+  const noActive=$('no-active');
+  if(!wrap)return;
+  const t=state.activeTrade;
+  if(!t){
+    wrap.innerHTML='';
+    if(noActive)noActive.style.display='block';
+    // Arrêter le polling live si plus de trade
+    if(_posInterval){clearInterval(_posInterval);_posInterval=null;}
+    return;
+  }
+  if(noActive)noActive.style.display='none';
+
+  const sym=(t.symbol||'NAS100').toUpperCase();
+  const d=_livePrices[sym];
+  const livePrice=d?.price??null;
+  const entry=parseFloat(t.entry)||0;
+  const sl=parseFloat(t.sl)||0;
+  const tp=parseFloat(t.tp1)||0;
+  const isLong=t.direction==='BUY';
+  const isPending=t.status==='pending';
+
+  // Barres de progression
+  let tpPct=0,slPct=0;
+  if(livePrice&&entry){
+    if(isLong){
+      if(tp>entry)tpPct=Math.min(100,Math.max(0,((livePrice-entry)/(tp-entry))*100));
+      if(sl<entry)slPct=Math.min(100,Math.max(0,((entry-livePrice)/(entry-sl))*100));
+    }else{
+      if(tp<entry)tpPct=Math.min(100,Math.max(0,((entry-livePrice)/(entry-tp))*100));
+      if(sl>entry)slPct=Math.min(100,Math.max(0,((livePrice-entry)/(sl-entry))*100));
+    }
+  }
+
+  const livePriceStr=livePrice?mkFmtPrice(livePrice,sym):'…';
+  const shortClass=isLong?'':'short';
+  const confirmScore=t.confirmScore||0;
+
+  wrap.innerHTML=`<div class="mk-position ${shortClass}" id="dash-pos-card">
+    <div class="mk-pos-glow"></div>
+    <div class="mk-pos-hdr">
+      <div>
+        <div class="mk-pos-sym">${sym} <span class="pill ${isLong?'pill-long':'pill-short'}">${isLong?'LONG':'SHORT'}</span></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">${fmtT(t.timestamp)}</div>
+      </div>
+      <div class="mk-pos-badge">
+        <div class="mk-pos-dot"></div>
+        <div class="mk-pos-dir">${isPending?'⏳ EN ATTENTE':'● ACTIF'}</div>
+      </div>
+    </div>
+    <div class="mk-pos-live-price" id="dash-pos-live">${livePriceStr}</div>
+    <div class="mk-pos-grid">
+      <div class="mk-pos-cell"><div class="mk-pos-cell-lbl">Entry</div><div class="mk-pos-cell-val">${mkFmtPrice(entry,sym)}</div></div>
+      <div class="mk-pos-cell tp"><div class="mk-pos-cell-lbl">TP1</div><div class="mk-pos-cell-val">${mkFmtPrice(tp,sym)}</div></div>
+      <div class="mk-pos-cell sl"><div class="mk-pos-cell-lbl">SL</div><div class="mk-pos-cell-val">${mkFmtPrice(sl,sym)}</div></div>
+    </div>
+    <div class="mk-pos-progress">
+      <div class="mk-prog-row">
+        <div class="mk-prog-lbl" style="color:var(--green)">TP</div>
+        <div class="mk-prog-track"><div class="mk-prog-fill" style="width:${tpPct.toFixed(1)}%;background:var(--green)"></div></div>
+        <div class="mk-prog-pct" style="color:var(--green)">${tpPct.toFixed(0)}%</div>
+      </div>
+      <div class="mk-prog-row">
+        <div class="mk-prog-lbl" style="color:var(--red)">SL</div>
+        <div class="mk-prog-track"><div class="mk-prog-fill" style="width:${slPct.toFixed(1)}%;background:var(--red)"></div></div>
+        <div class="mk-prog-pct" style="color:var(--red)">${slPct.toFixed(0)}%</div>
+      </div>
+    </div>
+    <div class="mk-pos-ftr">
+      <div class="cdots">${[0,1,2].map(i=>`<div class="cdot ${i<confirmScore?'on':''}"></div>`).join('')}</div>
+      <div style="font-family:var(--mono);font-size:11px;color:#aa66ff">${t.lot?t.lot.toFixed(3)+' lots':''}</div>
+    </div>
+  </div>`;
+
+  // Lancer le polling live prix si pas déjà actif
+  if(!_posInterval){
+    fetchLivePrice(sym).then(()=>updateLivePriceDOM(sym));
+    _posInterval=setInterval(async()=>{
+      if(!state.activeTrade){clearInterval(_posInterval);_posInterval=null;return;}
+      const s2=(state.activeTrade.symbol||'').toUpperCase();
+      await fetchLivePrice(s2);
+      updateLivePriceDOM(s2);
+    },5000);
+  }
+}
+
+function updateLivePriceDOM(sym){
+  const t=state.activeTrade;
+  if(!t)return;
+  const d=_livePrices[sym];
+  if(!d)return;
+  const liveEl=$('dash-pos-live');
+  if(liveEl){
+    const newStr=mkFmtPrice(d.price,sym);
+    if(liveEl.textContent!==newStr){
+      const dir=(d.prev&&d.price>d.prev.price)?'flash-up':(d.prev&&d.price<d.prev.price)?'flash-down':'';
+      liveEl.textContent=newStr;
+      if(dir){liveEl.classList.add(dir);setTimeout(()=>liveEl.classList.remove(dir),600);}
+    }
+  }
+  // Recalculer et mettre à jour les barres de progression
+  const entry=parseFloat(t.entry)||0;
+  const sl=parseFloat(t.sl)||0;
+  const tp=parseFloat(t.tp1)||0;
+  const isLong=t.direction==='BUY';
+  const lp=d.price;
+  let tpPct=0,slPct=0;
+  if(lp&&entry){
+    if(isLong){if(tp>entry)tpPct=Math.min(100,Math.max(0,((lp-entry)/(tp-entry))*100));if(sl<entry)slPct=Math.min(100,Math.max(0,((entry-lp)/(entry-sl))*100));}
+    else{if(tp<entry)tpPct=Math.min(100,Math.max(0,((entry-lp)/(entry-tp))*100));if(sl>entry)slPct=Math.min(100,Math.max(0,((lp-entry)/(sl-entry))*100));}
+  }
+  const card=$('dash-pos-card');
+  if(card){
+    const fills=card.querySelectorAll('.mk-prog-fill');
+    const pcts=card.querySelectorAll('.mk-prog-pct');
+    if(fills[0]){fills[0].style.width=tpPct.toFixed(1)+'%';}
+    if(fills[1]){fills[1].style.width=slPct.toFixed(1)+'%';}
+    if(pcts[0]){pcts[0].textContent=tpPct.toFixed(0)+'%';}
+    if(pcts[1]){pcts[1].textContent=slPct.toFixed(0)+'%';}
+  }
+}
+
+// Trade item HTML
 function tiHTML(t){
   const isTP=t.result==='TP1';
   const dir=t.direction==='BUY'?'Achat':'Vente';
@@ -265,8 +383,7 @@ function renderDonut(tp,sl){
   const p=(a,r)=>{const rad=(a-90)*Math.PI/180;return{x:60+r*Math.cos(rad),y:60+r*Math.sin(rad)};};
   const arc=(s,e,r,col)=>{const lg=e-s>180?1:0;const sp=p(s,r);const ep=p(e,r);return`<path d="M${sp.x},${sp.y} A${r},${r} 0 ${lg},1 ${ep.x},${ep.y}" fill="none" stroke="${col}" stroke-width="18" stroke-linecap="butt"/>`;};
   const wpct=Math.round(tp/total*100),lpct=100-wpct;
-  svg.innerHTML=
-    (tp>0?arc(0,slA,44,'#27ae60'):'')+(sl>0?arc(slA,360,44,'#c0392b'):'')+
+  svg.innerHTML=(tp>0?arc(0,slA,44,'#27ae60'):'')+(sl>0?arc(slA,360,44,'#c0392b'):'')+
     `<text x="60" y="56" text-anchor="middle" font-size="15" font-weight="700" fill="#fff" font-family="Space Mono,monospace">${wpct}%</text>`+
     `<text x="60" y="72" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.5)" font-family="Space Mono,monospace">${lpct}%</text>`;
 }
@@ -279,14 +396,17 @@ function renderBarChart(){
   const entries=Object.values(byDay).slice(-7);
   if(!entries.length){chart.innerHTML='<div style="font-size:11px;color:var(--muted);margin:auto">Aucune donnée</div>';return;}
   const maxAbs=Math.max(...entries.map(e=>Math.abs(e.pnl)),1);
-  $('gvp-max').textContent='€'+maxAbs.toFixed(4);
+  $('gvp-max').textContent='€'+maxAbs.toFixed(2);
   chart.innerHTML=entries.map(e=>{
     const pct=Math.abs(e.pnl)/maxAbs*100,pos=e.pnl>=0;
     return `<div class="bc-col"><div class="bc-bar" style="height:${pct}%;background:${pos?'#27ae60':'#c0392b'}"></div><div class="bc-day">${e.label.slice(0,3)}</div></div>`;
   }).join('');
 }
 
-function renderSettings(){$('my-token').textContent=TOKEN||'—';$('webhook-url').textContent=`${window.location.origin}/webhook/${TOKEN}`;}
+function renderSettings(){
+  $('my-token').textContent=TOKEN||'—';
+  $('webhook-url').textContent=`${window.location.origin}/webhook/${TOKEN}`;
+}
 
 // ── Side menu ──
 function openMenu(){$('side-menu').classList.add('open');$('menu-overlay').classList.add('open');}
@@ -294,14 +414,12 @@ function closeMenu(){$('side-menu').classList.remove('open');$('menu-overlay').c
 function goTab(name){
   document.querySelectorAll('.side-item').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.tab-section').forEach(s=>s.classList.remove('active'));
-  const active=document.querySelector('.side-item[data-tab="'+name+'"]');
+  const active=document.querySelector(`.side-item[data-tab="${name}"]`);
   if(active)active.classList.add('active');
   $('tab-'+name).classList.add('active');
   closeMenu();
   if(name==='stats')renderStats();
   if(name==='history')renderHistList();
-  if(name==='markets'){mkRenderPosition();mkRenderList();mkStartPolling();}
-  else{mkStopPolling();}
 }
 $('menu-btn').onclick=openMenu;
 $('menu-overlay').onclick=closeMenu;
@@ -313,345 +431,6 @@ $('back-hist').onclick=()=>goTab('dashboard');
 
 $('copy-wh').onclick=()=>{navigator.clipboard.writeText(`${window.location.origin}/webhook/${TOKEN}`).then(()=>toast('URL copiée !')).catch(()=>toast('Copié !'));};
 
-// PUSH
-function b64ToU8(b64){const pad='='.repeat((4-b64.length%4)%4);const b=(b64+pad).replace(/-/g,'+').replace(/_/g,'/');return Uint8Array.from([...atob(b)].map(c=>c.charCodeAt(0)));}
-
 // INIT
 async function init(){if(!TOKEN){showAuth();return;}showApp();await regSW();await loadAll();renderAll();connectSSE();}
 init();
-
-/* ════════════════════════════════════
-   MARKETS TAB
-════════════════════════════════════ */
-// Default watchlist
-const MK_STORAGE_KEY = 'aurora_watchlist';
-const MK_DEFAULTS = ['BTCUSD','ETHUSD','XAUUSD','EURUSD','NAS100'];
-let mkWatchlist = JSON.parse(localStorage.getItem(MK_STORAGE_KEY)||'null') || [...MK_DEFAULTS];
-let mkPrices = {}; // sym → {price, prev, change, changePct, desc}
-let mkInterval = null;
-
-// ── Explicit symbol → source mapping ──
-// Crypto = Binance USDT pair. Everything else = dedicated APIs.
-const MK_CRYPTO_LIST = new Set(['BTC','ETH','BNB','SOL','XRP','LTC','ADA','DOT','LINK','AVAX',
-  'DOGE','MATIC','UNI','ATOM','FTM','NEAR','APT','ARB','OP','INJ','TIA','SEI','SUI',
-  'SHIB','PEPE','TON','ORDI','RENDER','FET','OCEAN']);
-
-function mkSymType(sym){
-  const s = sym.toUpperCase();
-  if(['XAUUSD','XAGUSD','XPTUSD','XPDUSD'].includes(s)) return 'metal';
-  if(['NAS100','SPX500','US30','GER40','UK100','JPN225','AUS200','USTEC','CAC40','ES35'].includes(s)) return 'index';
-  if(['USOIL','UKOIL','NGAS','USOIL.WTI'].includes(s)) return 'commodity';
-  // Crypto: base asset (strip USD/USDT) must be in crypto list
-  const base = s.replace(/USDT?$/, '');
-  if(MK_CRYPTO_LIST.has(base)) return 'crypto';
-  // 6-char pairs that are clearly forex (both halves are fiat codes)
-  if(s.length === 6) return 'forex';
-  return 'other';
-}
-
-// ── Fetch price for one symbol ──
-async function mkFetchPrice(sym){
-  const s = sym.toUpperCase().trim();
-  const prevPrice = mkPrices[s]?.price || null;
-  const type = mkSymType(s);
-
-  // Helper to store result
-  const store = (price, change, changePct, desc, src) => {
-    mkPrices[s] = {price, prev: prevPrice||price, change, changePct, desc, src};
-  };
-
-  // ── CRYPTO → Binance ──
-  if(type === 'crypto'){
-    const binSym = s.replace(/USD$/, 'USDT');
-    try {
-      const r = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${binSym}`, {signal:AbortSignal.timeout(5000)});
-      if(r.ok){
-        const d = await r.json();
-        if(d.lastPrice && !d.code){
-          store(parseFloat(d.lastPrice), parseFloat(d.priceChange), parseFloat(d.priceChangePercent), 'Binance', 'binance');
-          return;
-        }
-      }
-    } catch {}
-    // CoinGecko fallback
-    try {
-      const cgId = {'BTCUSD':'bitcoin','ETHUSD':'ethereum','BNBUSD':'binancecoin','SOLUSD':'solana','XRPUSD':'ripple','LTCUSD':'litecoin','ADAUSD':'cardano','DOTUSD':'polkadot','DOGEUSD':'dogecoin','AVAXUSD':'avalanche-2','LINKUSD':'chainlink'}[s];
-      if(cgId){
-        const r = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${cgId}&vs_currencies=usd&include_24hr_change=true`, {signal:AbortSignal.timeout(6000)});
-        if(r.ok){
-          const d = await r.json();
-          if(d[cgId]?.usd){
-            const price = d[cgId].usd, chPct = d[cgId].usd_24h_change||0;
-            store(price, price*chPct/100, chPct, 'CoinGecko', 'coingecko');
-            return;
-          }
-        }
-      }
-    } catch {}
-  }
-
-  // ── METALS → metals.live (public, no key, CORS ok) ──
-  if(type === 'metal'){
-    try {
-      const metalName = {'XAUUSD':'gold','XAGUSD':'silver','XPTUSD':'platinum','XPDUSD':'palladium'}[s] || 'gold';
-      const r = await fetch(`https://api.metals.live/v1/spot/${metalName}`, {signal:AbortSignal.timeout(6000)});
-      if(r.ok){
-        const d = await r.json();
-        // returns [{price: 3300.12}] or {price: 3300.12}
-        const raw = Array.isArray(d) ? d[0] : d;
-        if(raw?.price){
-          const price = parseFloat(raw.price);
-          const ch = prevPrice ? price - prevPrice : 0;
-          const chPct = prevPrice ? (ch/prevPrice)*100 : 0;
-          store(price, ch, chPct, 'Metals.live', 'metals');
-          return;
-        }
-      }
-    } catch {}
-    // Fallback: Frankfurter can't do metals; try Yahoo v8 with cookie workaround
-    try {
-      const ticker = s==='XAUUSD'?'GC=F':'SI=F';
-      const r = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=2d`, {signal:AbortSignal.timeout(7000)});
-      if(r.ok){
-        const d = await r.json();
-        const meta = d?.chart?.result?.[0]?.meta;
-        if(meta?.regularMarketPrice){
-          const price = meta.regularMarketPrice;
-          const prev2 = meta.chartPreviousClose || price;
-          store(price, price-prev2, prev2?((price-prev2)/prev2)*100:0, 'Yahoo Finance', 'yahoo');
-          return;
-        }
-      }
-    } catch {}
-  }
-
-  // ── FOREX → Frankfurter (BCE, gratuit, CORS ok) ──
-  if(type === 'forex'){
-    try {
-      const base = s.slice(0,3), quote = s.slice(3,6);
-      const r = await fetch(`https://api.frankfurter.app/latest?from=${base}&to=${quote}`, {signal:AbortSignal.timeout(5000)});
-      if(r.ok){
-        const d = await r.json();
-        if(d.rates?.[quote]){
-          const price = d.rates[quote];
-          const ch = prevPrice ? price - prevPrice : 0;
-          const chPct = prevPrice ? (ch/prevPrice)*100 : 0;
-          store(price, ch, chPct, 'Frankfurter · BCE', 'frankfurter');
-          return;
-        }
-      }
-    } catch {}
-    // Fallback: ExchangeRate-API
-    try {
-      const base = s.slice(0,3), quote = s.slice(3,6);
-      const r = await fetch(`https://open.er-api.com/v6/latest/${base}`, {signal:AbortSignal.timeout(5000)});
-      if(r.ok){
-        const d = await r.json();
-        if(d.rates?.[quote]){
-          const price = d.rates[quote];
-          const ch = prevPrice ? price - prevPrice : 0;
-          const chPct = prevPrice ? (ch/prevPrice)*100 : 0;
-          store(price, ch, chPct, 'ExchangeRate-API', 'er-api');
-          return;
-        }
-      }
-    } catch {}
-  }
-
-  // ── INDICES & COMMODITIES → Yahoo Finance v8 ──
-  const yTicker = {'NAS100':'^NDX','USTEC':'^NDX','SPX500':'^GSPC','US30':'^DJI',
-    'GER40':'^GDAXI','UK100':'^FTSE','JPN225':'^N225','AUS200':'^AXJO','CAC40':'^FCHI',
-    'USOIL':'CL=F','UKOIL':'BZ=F','NGAS':'NG=F','XAUUSD':'GC=F','XAGUSD':'SI=F'}[s] || s+'=X';
-  try {
-    const r = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yTicker)}?interval=1d&range=2d`, {signal:AbortSignal.timeout(7000)});
-    if(r.ok){
-      const d = await r.json();
-      const meta = d?.chart?.result?.[0]?.meta;
-      if(meta?.regularMarketPrice){
-        const price = meta.regularMarketPrice;
-        const prev2 = meta.chartPreviousClose || meta.previousClose || price;
-        store(price, price-prev2, prev2?((price-prev2)/prev2)*100:0, meta.exchangeName||'Yahoo Finance', 'yahoo');
-        return;
-      }
-    }
-  } catch {}
-
-  // Keep last known price or mark error
-  if(!mkPrices[s]) mkPrices[s] = {price:null, prev:null, change:0, changePct:0, desc:'Indisponible', src:'err'};
-}
-
-function mkFmtPrice(p,sym){
-  if(p===null||p===undefined) return '—';
-  const s=sym.toUpperCase();
-  if(s==='USDJPY'||s.includes('JPY')) return p.toFixed(3);
-  if(p>=10000) return p.toFixed(1);
-  if(p>=1000) return p.toFixed(2);
-  if(p>=10) return p.toFixed(4);
-  if(p>=0.1) return p.toFixed(5);
-  return p.toFixed(6);
-}
-
-// ── Render list of watched symbols ──
-function mkRenderList(){
-  const list = $('mk-list');
-  if(!mkWatchlist.length){list.innerHTML='<div class="empty">Aucun actif surveillé</div>';return;}
-  list.innerHTML = mkWatchlist.map(sym=>{
-    const d = mkPrices[sym];
-    const priceStr = d ? mkFmtPrice(d.price, sym) : '…';
-    const isUp = d && d.change >= 0;
-    const changeStr = d ? (isUp?'+':'')+d.changePct.toFixed(2)+'%' : '';
-    const descStr = d ? d.desc : '';
-    const flashClass = '';
-    return `<div class="mk-row" id="mk-row-${sym}">
-      <div class="mk-row-left">
-        <div class="mk-sym">${sym}</div>
-        <div class="mk-desc">${descStr}</div>
-      </div>
-      <div class="mk-price-block">
-        <div class="mk-price" id="mk-price-${sym}">${priceStr}</div>
-        <div class="mk-change ${isUp?'up':'dn'}" id="mk-change-${sym}">${changeStr}</div>
-      </div>
-      <button class="mk-del" onclick="mkRemove('${sym}')" title="Retirer">🗑</button>
-    </div>`;
-  }).join('');
-}
-
-// ── Update prices in DOM (smooth flash) ──
-function mkUpdateDOM(){
-  mkWatchlist.forEach(sym=>{
-    const d = mkPrices[sym];
-    if(!d) return;
-    const priceEl = $('mk-price-'+sym);
-    const changeEl = $('mk-change-'+sym);
-    const rowEl = $('mk-row-'+sym);
-    if(!priceEl) return;
-    const newStr = mkFmtPrice(d.price, sym);
-    if(priceEl.textContent !== newStr && newStr !== '—'){
-      const dir = d.price > (d.prev||d.price) ? 'flash-up' : d.price < (d.prev||d.price) ? 'flash-down' : '';
-      priceEl.textContent = newStr;
-      if(dir){priceEl.classList.add(dir);setTimeout(()=>priceEl.classList.remove(dir),600);}
-    }
-    if(changeEl){
-      const isUp = d.change >= 0;
-      changeEl.textContent = (isUp?'+':'')+d.changePct.toFixed(2)+'%';
-      changeEl.className = 'mk-change '+(isUp?'up':'dn');
-    }
-  });
-  // Also update position card live price
-  mkRenderPosition();
-}
-
-// ── Position card (MT5 style) ──
-function mkRenderPosition(){
-  const wrap = $('mk-position-wrap');
-  if(!wrap) return;
-  const t = state.activeTrade;
-  if(!t || !t.symbol){wrap.innerHTML='';return;}
-  const sym = t.symbol.toUpperCase();
-  const d = mkPrices[sym];
-  const livePrice = d?.price ?? null;
-  const entry = parseFloat(t.entry)||0;
-  const sl = parseFloat(t.sl)||0;
-  const tp = parseFloat(t.tp1)||0;
-  const isLong = t.direction === 'BUY';
-  const isPending = t.status === 'pending';
-  // Progress toward TP and SL
-  let tpPct = 0, slPct = 0;
-  if(livePrice && entry){
-    if(isLong){
-      if(tp>entry) tpPct = Math.min(100,Math.max(0,((livePrice-entry)/(tp-entry))*100));
-      if(sl<entry) slPct = Math.min(100,Math.max(0,((entry-livePrice)/(entry-sl))*100));
-    } else {
-      if(tp<entry) tpPct = Math.min(100,Math.max(0,((entry-livePrice)/(entry-tp))*100));
-      if(sl>entry) slPct = Math.min(100,Math.max(0,((livePrice-entry)/(sl-entry))*100));
-    }
-  }
-  // Floating PnL estimate (pips * lot * pip value ≈ rough)
-  let pnlStr = '—';
-  if(livePrice && entry && t.lot){
-    const diff = isLong ? (livePrice-entry) : (entry-livePrice);
-    const pipVal = sym.includes('JPY') ? 0.01 : (livePrice>500?0.1:0.0001);
-    const pips = diff/pipVal;
-    const est = pips * t.lot * (sym.includes('JPY')?1000:10);
-    pnlStr = (est>=0?'+€':'-€')+Math.abs(est).toFixed(2);
-  }
-  const livePriceStr = livePrice ? mkFmtPrice(livePrice, sym) : '…';
-  const shortClass = isLong ? '' : ' short';
-  wrap.innerHTML = `<div class="mk-position${shortClass}" id="mk-pos-card">
-    <div class="mk-pos-glow"></div>
-    <div class="mk-pos-hdr">
-      <div class="mk-pos-sym">${sym} <span style="font-size:10px;color:var(--muted);font-weight:400">${isPending?'· EN ATTENTE':''}</span></div>
-      <div class="mk-pos-badge">
-        <div class="mk-pos-dot"></div>
-        <div class="mk-pos-dir">${isLong?'▲ LONG':'▼ SHORT'}</div>
-      </div>
-    </div>
-    <div class="mk-pos-live-price" id="mk-pos-live">${livePriceStr}</div>
-    <div class="mk-pos-grid">
-      <div class="mk-pos-cell"><div class="mk-pos-cell-lbl">Entry</div><div class="mk-pos-cell-val">${mkFmtPrice(entry,sym)}</div></div>
-      <div class="mk-pos-cell tp"><div class="mk-pos-cell-lbl">TP</div><div class="mk-pos-cell-val">${mkFmtPrice(tp,sym)}</div></div>
-      <div class="mk-pos-cell sl"><div class="mk-pos-cell-lbl">SL</div><div class="mk-pos-cell-val">${mkFmtPrice(sl,sym)}</div></div>
-    </div>
-    <div class="mk-pos-progress">
-      <div class="mk-prog-row">
-        <div class="mk-prog-lbl" style="color:var(--green)">TP</div>
-        <div class="mk-prog-track"><div class="mk-prog-fill" style="width:${tpPct.toFixed(1)}%;background:var(--green)"></div></div>
-        <div class="mk-prog-pct" style="color:var(--green)">${tpPct.toFixed(0)}%</div>
-      </div>
-      <div class="mk-prog-row">
-        <div class="mk-prog-lbl" style="color:var(--red)">SL</div>
-        <div class="mk-prog-track"><div class="mk-prog-fill" style="width:${slPct.toFixed(1)}%;background:var(--red)"></div></div>
-        <div class="mk-prog-pct" style="color:var(--red)">${slPct.toFixed(0)}%</div>
-      </div>
-    </div>
-    <div class="mk-pos-pnl">
-      <div class="mk-pos-pnl-lbl">PnL flottant estimé${t.lot?' · '+t.lot.toFixed(3)+' lots':''}</div>
-      <div class="mk-pos-pnl-val ${pnlStr.startsWith('+')?'pos':'neg'}">${pnlStr}</div>
-    </div>
-  </div>`;
-  // Add the trade symbol to watchlist if not already there
-  if(!mkWatchlist.includes(sym)){mkWatchlist.unshift(sym);mkSave();mkRenderList();}
-}
-
-function mkRemove(sym){
-  mkWatchlist = mkWatchlist.filter(s=>s!==sym);
-  mkSave();
-  mkRenderList();
-}
-
-function mkSave(){localStorage.setItem(MK_STORAGE_KEY, JSON.stringify(mkWatchlist));}
-
-async function mkRefreshAll(){
-  await Promise.allSettled(mkWatchlist.map(s=>mkFetchPrice(s)));
-  mkUpdateDOM();
-}
-
-function mkStartPolling(){
-  if(mkInterval) clearInterval(mkInterval);
-  mkRefreshAll();
-  mkInterval = setInterval(mkRefreshAll, 5000);
-}
-
-function mkStopPolling(){
-  if(mkInterval){clearInterval(mkInterval);mkInterval=null;}
-}
-
-// ── Add symbol handler ──
-$('mk-add-btn').onclick = async()=>{
-  const inp = $('mk-search-inp');
-  const sym = inp.value.trim().toUpperCase().replace(/\s+/g,'');
-  if(!sym){toast('Entre un symbole');return;}
-  if(mkWatchlist.includes(sym)){toast('Déjà dans la liste');inp.value='';return;}
-  if(mkWatchlist.length>=20){toast('Max 20 actifs');return;}
-  inp.value='';
-  mkWatchlist.push(sym);
-  mkSave();
-  mkRenderList();
-  await mkFetchPrice(sym);
-  mkUpdateDOM();
-};
-$('mk-search-inp').addEventListener('keydown',e=>{if(e.key==='Enter'){$('mk-add-btn').click();}});
-$('back-markets').onclick = ()=>goTab('dashboard');
-
-
-
