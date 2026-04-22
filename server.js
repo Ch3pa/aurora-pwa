@@ -197,12 +197,26 @@ app.post('/webhook/:token', async (req, res) => {
       timestamp: now, result: null, pnl: null, rr: null, status: 'pending'
     };
     broadcast(user, 'entry', user.activeTrade);
-    // Push style Pushover Aurora
-    await sendPush(user, {
-      title: `Aurora - ${dirEmoji} ${sym}`,
-      body: `Ordre limite posé\nSymbole : ${sym}\nLot : ${lot.toFixed(3)}\nEntrée : ${body.entry || '—'} · SL ${body.sl || '—'} · TP ${body.tp1 || '—'}`,
-      tag: 'aurora-entry'
-    });
+    // Pas de push ici — la notification est envoyée à l'activation réelle de l'ordre
+  }
+
+  // ── ACTIVATE (ordre limite exécuté → passage pending → active) ──
+  if (body.action === 'ACTIVATE') {
+    if (user.activeTrade) {
+      const sym = body.symbol || user.activeTrade.symbol || 'NAS100';
+      const lot = parseFloat(body.lot) || user.activeTrade.lot || 0;
+      const dir = user.activeTrade.direction;
+      user.activeTrade.status = 'active';
+      if (body.entry) user.activeTrade.entry = body.entry;
+      broadcast(user, 'activate', user.activeTrade);
+      // Push : seulement le sens, le symbole et le lot
+      const dirLabel = dir === 'BUY' ? 'BUY' : 'SELL';
+      await sendPush(user, {
+        title: `${dirLabel} ${sym}`,
+        body: `${lot.toFixed(3)} lots`,
+        tag: 'aurora-activate'
+      });
+    }
   }
 
   // ── CANCEL_LIMIT ──
@@ -250,16 +264,16 @@ app.post('/webhook/:token', async (req, res) => {
       saveDB();
       broadcast(user, 'close', { trade: closed, day: dayStats(user.trades) });
 
-      // Push style Pushover Aurora — même format que aurora.py
+      // Push : résultat, symbole, PNL et phrase
       const exitEmoji = isTP ? '🚀' : '❌';
-      const exitLabel = isTP ? 'TP' : 'SL';
+      const exitLabel = isTP ? 'TP1' : 'SL';
       const pnlSign = pnl >= 0 ? '+' : '';
       const pnlTxt = `${pnlSign}${Math.round(pnl * 100) / 100} $`;
       const phrase = pick(isTP ? PHRASES_TP : PHRASES_SL);
 
       await sendPush(user, {
-        title: `Aurora - ${exitLabel} ${exitEmoji}`,
-        body: `Symbole : ${sym}\nPNL : ${pnlTxt}\n${phrase}`,
+        title: `${exitLabel} ${exitEmoji} — ${sym}`,
+        body: `PNL : ${pnlTxt}\n${phrase}`,
         tag: 'aurora-close'
       });
     }
