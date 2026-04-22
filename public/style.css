@@ -357,3 +357,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .ch-status-dot.err{background:var(--red)}
 .ch-status-txt{font-family:var(--mono);font-size:10px;color:var(--muted)}
 .ch-source{font-size:9px;color:rgba(255,255,255,0.12);font-family:var(--mono)}
+
+/* ── Footer carte position dashboard ── */
+.mk-pos-ftr{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:.5px solid rgba(255,255,255,0.07);margin-top:2px}
+/* Carte position dans le dashboard : marge latérale */
+#active-position-wrap .mk-position{margin:0 14px 10px}
