@@ -320,6 +320,42 @@ app.post('/api/:token/trades', auth, (req, res) => {
   res.json({ ok:true, trade });
 });
 
+// ── Prix live — proxy serveur (évite CORS côté navigateur) ──
+app.get('/api/price/:symbol', async (req, res) => {
+  const s = req.params.symbol.toUpperCase().trim();
+  const cryptoBases = new Set(['BTC','ETH','BNB','SOL','XRP','LTC','ADA','DOT','LINK','AVAX','DOGE','MATIC']);
+  const base = s.replace(/USDT?$/, '');
+
+  // Crypto → Binance
+  if (cryptoBases.has(base)) {
+    try {
+      const r = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${s.replace(/USD$/, 'USDT')}`, { signal: AbortSignal.timeout(4000) });
+      if (r.ok) { const d = await r.json(); if (d.price) return res.json({ price: parseFloat(d.price) }); }
+    } catch {}
+  }
+
+  // Métaux → metals.live
+  if (['XAUUSD','XAGUSD'].includes(s)) {
+    try {
+      const name = s === 'XAUUSD' ? 'gold' : 'silver';
+      const r = await fetch(`https://api.metals.live/v1/spot/${name}`, { signal: AbortSignal.timeout(5000) });
+      if (r.ok) { const d = await r.json(); const raw = Array.isArray(d) ? d[0] : d; if (raw?.price) return res.json({ price: parseFloat(raw.price) }); }
+    } catch {}
+  }
+
+  // Yahoo Finance — indices, forex, matières premières
+  const yMap = { 'NAS100':'^NDX','USTEC':'^NDX','SPX500':'^GSPC','US30':'^DJI','GER40':'^GDAXI','UK100':'^FTSE','JPN225':'^N225','USOIL':'CL=F','UKOIL':'BZ=F' };
+  const yTicker = yMap[s] || (s.length === 6 && !cryptoBases.has(base) ? s + '=X' : null);
+  if (yTicker) {
+    try {
+      const r = await fetch(`https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yTicker)}?interval=1d&range=1d`, { signal: AbortSignal.timeout(6000) });
+      if (r.ok) { const d = await r.json(); const price = d?.chart?.result?.[0]?.meta?.regularMarketPrice; if (price) return res.json({ price }); }
+    } catch {}
+  }
+
+  res.status(404).json({ error: 'Prix indisponible' });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
