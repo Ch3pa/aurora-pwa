@@ -204,16 +204,15 @@ app.post('/webhook/:token', async (req, res) => {
   if (body.action === 'ACTIVATE') {
     if (user.activeTrade) {
       const sym = body.symbol || user.activeTrade.symbol || 'NAS100';
-      const lot = parseFloat(body.lot) || user.activeTrade.lot || 0;
+      const lot = user.activeTrade.lot || 0;
       const dir = user.activeTrade.direction;
       user.activeTrade.status = 'active';
       if (body.entry) user.activeTrade.entry = body.entry;
       broadcast(user, 'activate', user.activeTrade);
-      // Push : seulement le sens, le symbole et le lot
-      const dirLabel = dir === 'BUY' ? 'BUY' : 'SELL';
+      const dirLabel = dir === 'BUY' ? '▲ LONG' : '▼ SHORT';
       await sendPush(user, {
-        title: `${dirLabel} ${sym}`,
-        body: `${lot.toFixed(3)} lots`,
+        title: `${dirLabel} — ${sym}`,
+        body: `Entrée confirmée · ${lot.toFixed(3)} lots`,
         tag: 'aurora-activate'
       });
     }
@@ -221,14 +220,9 @@ app.post('/webhook/:token', async (req, res) => {
 
   // ── CANCEL_LIMIT ──
   if (body.action === 'CANCEL_LIMIT') {
-    const sym = body.symbol || (user.activeTrade?.symbol) || 'NAS100';
     user.activeTrade = null;
     broadcast(user, 'cancel', {});
-    await sendPush(user, {
-      title: `Aurora - ⚠ Ordre annulé`,
-      body: `Symbole : ${sym}\nSignal inversé — ordre limite supprimé`,
-      tag: 'aurora-cancel'
-    });
+    // Pas de push — annulation silencieuse
   }
 
   // ── CLOSE_TP / CLOSE_SL ──
