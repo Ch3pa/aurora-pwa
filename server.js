@@ -334,7 +334,7 @@ app.get('/api/price/:symbol', async (req, res) => {
     } catch {}
   }
 
-  // Métaux → metals.live
+  // Métaux → metals.live (priorité)
   if (['XAUUSD','XAGUSD'].includes(s)) {
     try {
       const name = s === 'XAUUSD' ? 'gold' : 'silver';
@@ -343,8 +343,8 @@ app.get('/api/price/:symbol', async (req, res) => {
     } catch {}
   }
 
-  // Yahoo Finance — indices, forex, matières premières
-  const yMap = { 'NAS100':'^NDX','USTEC':'^NDX','SPX500':'^GSPC','US30':'^DJI','GER40':'^GDAXI','UK100':'^FTSE','JPN225':'^N225','USOIL':'CL=F','UKOIL':'BZ=F' };
+  // Yahoo Finance — indices, forex, matières premières + fallback XAUUSD/XAGUSD
+  const yMap = { 'NAS100':'^NDX','USTEC':'^NDX','SPX500':'^GSPC','US30':'^DJI','GER40':'^GDAXI','UK100':'^FTSE','JPN225':'^N225','USOIL':'CL=F','UKOIL':'BZ=F','XAUUSD':'GC=F','XAGUSD':'SI=F' };
   const yTicker = yMap[s] || (s.length === 6 && !cryptoBases.has(base) ? s + '=X' : null);
   if (yTicker) {
     try {
