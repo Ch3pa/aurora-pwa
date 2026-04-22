@@ -362,3 +362,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .mk-pos-ftr{display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:.5px solid rgba(255,255,255,0.07);margin-top:2px}
 /* Carte position dans le dashboard : marge latérale */
 #active-position-wrap .mk-position{margin:0 14px 10px}
+
+/* ── ONGLET GRAPHIQUES ── */
+.ch-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:16px;padding:16px;margin:0 14px 16px;overflow:hidden}
+.ch-title{font-family:var(--mono);font-size:13px;font-weight:700;color:#fff;margin-bottom:2px}
+.ch-sub{font-size:11px;color:var(--muted);margin-bottom:12px}
+.ch-sub-row{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.hm-btn{font-size:11px;font-weight:700;font-family:var(--mono);padding:5px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:rgba(255,255,255,0.35);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all .15s}
+.hm-btn.active{border-color:rgba(120,70,255,0.6);color:#aa66ff;background:rgba(100,50,255,0.16)}
+#ch-heatmap{width:100%;overflow-x:auto}
+.hm-grid{display:grid;gap:3px}
+.hm-cell{border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700;color:rgba(255,255,255,0.85);min-height:32px}
+.hm-label-row{display:flex;gap:3px;margin-bottom:3px}
+.hm-label{font-size:9px;font-family:var(--mono);color:var(--muted);text-align:center;flex:1}
+.hm-row-label{font-size:9px;font-family:var(--mono);color:var(--muted);width:28px;display:flex;align-items:center;flex-shrink:0}
+.hm-row{display:flex;gap:3px;align-items:center}
