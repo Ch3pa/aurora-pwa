@@ -65,6 +65,7 @@
     </div>
     <div class="side-items">
       <button class="side-item active" data-tab="dashboard">⚡ &nbsp; Dashboard</button>
+      <button class="side-item" data-tab="charts">📈 &nbsp; Graphiques</button>
       <button class="side-item" data-tab="stats">📊 &nbsp; Statistics</button>
       <button class="side-item" data-tab="history">📋 &nbsp; Historique</button>
       <button class="side-item" data-tab="settings">⚙️ &nbsp; Réglages</button>
@@ -114,6 +115,44 @@
 
       <div class="sec-lbl" style="margin-top:14px">Derniers trades</div>
       <div id="recent-list"></div>
+    </section>
+
+    <!-- GRAPHIQUES -->
+    <section id="tab-charts" class="tab-section">
+      <div class="page-hdr"><button class="back-btn" id="back-charts">‹</button><span>Graphiques</span></div>
+
+      <!-- Equity Curve -->
+      <div class="ch-card">
+        <div class="ch-title">📈 Equity Curve</div>
+        <div class="ch-sub">Capital cumulé dans le temps</div>
+        <canvas id="ch-equity" height="160"></canvas>
+      </div>
+
+      <!-- Distribution gains/pertes -->
+      <div class="ch-card">
+        <div class="ch-title">📊 Distribution Gains / Pertes</div>
+        <div class="ch-sub">Répartition par trade</div>
+        <canvas id="ch-distrib" height="140"></canvas>
+      </div>
+
+      <!-- Courbe cumulée vs Drawdown -->
+      <div class="ch-card">
+        <div class="ch-title">📉 Cumulé vs Drawdown</div>
+        <div class="ch-sub">PnL cumulé et drawdown max</div>
+        <canvas id="ch-dd" height="160"></canvas>
+      </div>
+
+      <!-- Heatmap -->
+      <div class="ch-card">
+        <div class="ch-title">🔥 Heatmap Performance</div>
+        <div class="ch-sub-row">
+          <button class="hm-btn active" data-hm="hour">Heure</button>
+          <button class="hm-btn" data-hm="weekday">Jour</button>
+          <button class="hm-btn" data-hm="week">Semaine</button>
+          <button class="hm-btn" data-hm="month">Mois</button>
+        </div>
+        <div id="ch-heatmap"></div>
+      </div>
     </section>
 
     <!-- STATISTICS -->
