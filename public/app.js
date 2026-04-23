@@ -347,11 +347,10 @@ function renderActivePosition() {
     ticket   = pos.ticket;
     openTime = pos.open_time;
 
-    if (!_posInterval) {
-      fetchLivePrice(sym).then(() => renderActivePosition());
-      _posInterval = setInterval(() => { fetchLivePrice(sym).then(() => updateLivePriceDOM(sym)); }, 5000);
-    }
-    livePrice = _livePrices[sym.toUpperCase()]?.price ?? pos.current_price;
+    // Prix live = current_price de MT5 (mis à jour à chaque polling /mt5/live toutes les 3s)
+    // Pas besoin de polling Yahoo — MT5 est la source la plus précise
+    livePrice = pos.current_price;
+    if (_posInterval) { clearInterval(_posInterval); _posInterval = null; }
 
   } else if (pending.length > 0) {
     const o  = pending[0];
@@ -365,7 +364,8 @@ function renderActivePosition() {
     profit   = null;
     ticket   = o.ticket;
     openTime = null;
-    livePrice = null;
+    // Prix marché actuel envoyé par MT5 (bid), sinon prix limite comme fallback
+    livePrice = o.current_price ?? o.price;
     if (_posInterval) { clearInterval(_posInterval); _posInterval = null; }
 
   } else if (activeTrade) {
@@ -385,6 +385,7 @@ function renderActivePosition() {
       _posInterval = setInterval(() => { fetchLivePrice(sym).then(() => updateLivePriceDOM(sym)); }, 5000);
     }
     livePrice = _livePrices[sym.toUpperCase()]?.price ?? null;
+    // Si MT5 live arrive, on aura current_price au prochain cycle
   } else {
     return;
   }
