@@ -141,13 +141,30 @@ app.post('/api/:token/push/subscribe', auth, (req, res) => {
 });
 
 // ============================================================
+// NGROK URL — sauvegarde par utilisateur (persiste en db.json)
+// ============================================================
+
+app.post('/api/:token/mt5/url', auth, (req, res) => {
+  const { url } = req.body;
+  if (!url || !url.startsWith('http')) return res.status(400).json({ error: 'URL invalide' });
+  req.user.mt5Url = url.replace(/\/+$/, '');
+  saveDB();
+  console.log(`[MT5URL] ${req.user.name} → ${req.user.mt5Url}`);
+  res.json({ ok: true, url: req.user.mt5Url });
+});
+
+app.get('/api/:token/mt5/url', auth, (req, res) => {
+  res.json({ url: req.user.mt5Url || DEFAULT_MT5_URL });
+});
+
+// ============================================================
 // PROXY MT5 — source unique de verite pour toutes les donnees
 // ============================================================
 
 // Stats live : compte + jour + positions + pending
 app.get('/api/:token/mt5/live', auth, async (req, res) => {
   try {
-    const r = await fetch(`${AURORA_MT5_URL}/mt5/live`, { signal: AbortSignal.timeout(6000) });
+    const r = await fetch(`${getMT5Url(req)}/mt5/live`, { signal: AbortSignal.timeout(6000) });
     if (!r.ok) return res.status(r.status).json({ error: `aurora.py HTTP ${r.status}` });
     res.json(await r.json());
   } catch(e) { res.status(503).json({ error: 'aurora.py indisponible', detail: e.message }); }
@@ -157,7 +174,7 @@ app.get('/api/:token/mt5/live', auth, async (req, res) => {
 app.get('/api/:token/mt5/history', auth, async (req, res) => {
   try {
     const qs  = new URLSearchParams(req.query).toString();
-    const r   = await fetch(`${AURORA_MT5_URL}/mt5/history${qs ? '?' + qs : ''}`, { signal: AbortSignal.timeout(10000) });
+    const r   = await fetch(`${getMT5Url(req)}/mt5/history${qs ? '?' + qs : ''}`, { signal: AbortSignal.timeout(10000) });
     if (!r.ok) return res.status(r.status).json({ error: `aurora.py HTTP ${r.status}` });
     res.json(await r.json());
   } catch(e) { res.status(503).json({ error: 'aurora.py indisponible', detail: e.message }); }
@@ -171,7 +188,7 @@ app.get('/api/:token/mt5/stream', auth, async (req, res) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
   try {
-    const upstream = await fetch(`${AURORA_MT5_URL}/mt5/stream`, { signal: req.signal });
+    const upstream = await fetch(`${getMT5Url(req)}/mt5/stream`, { signal: req.signal });
     if (!upstream.ok || !upstream.body) { res.end(); return; }
     const reader = upstream.body.getReader();
     req.on('close', () => reader.cancel());
@@ -200,7 +217,7 @@ app.post('/webhook/:token', async (req, res) => {
   // Forward vers aurora.py (execution MT5)
   let auroraResp = null;
   try {
-    const r = await fetch(`${AURORA_MT5_URL}/webhook`, {
+    const r = await fetch(`${getMT5Url(req)}/webhook`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -273,4 +290,4 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Aurora server :${PORT} | MT5: ${AURORA_MT5_URL}`));
+app.listen(PORT, () => console.log(`Aurora server :${PORT} | MT5 default: ${DEFAULT_MT5_URL}`));
