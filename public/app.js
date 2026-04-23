@@ -318,98 +318,165 @@ function renderActivePosition() {
   const wrap = $('active-position-wrap'), noActive = $('no-active');
   if (!wrap) return;
 
-  // Priorité : positions ouvertes MT5
+  // Source : positions MT5 en priorité, sinon activeTrade SSE
   const positions = mt5Live?.positions || [];
   const pending   = mt5Live?.pending   || [];
 
-  if (positions.length > 0) {
-    // Position ouverte réelle MT5
-    if (noActive) noActive.style.display = 'none';
-    const pos    = positions[0];
-    const isLong = pos.type === 'BUY';
-    const pColor = pos.profit >= 0 ? 'var(--green)' : 'var(--red)';
-    const pSign  = pos.profit >= 0 ? '+' : '';
-
-    // Démarrer le polling live si pas déjà actif
-    if (!_posInterval) {
-      fetchLivePrice(pos.symbol);
-      _posInterval = setInterval(() => fetchLivePrice(pos.symbol), 5000);
-    }
-    const lp = _livePrices[pos.symbol.toUpperCase()]?.price ?? pos.current_price;
-
-    // Barres TP/SL
-    let tpPct = 0, slPct = 0;
-    if (lp && pos.open_price) {
-      if (isLong) {
-        if (pos.tp > pos.open_price) tpPct = Math.min(100, Math.max(0, ((lp - pos.open_price) / (pos.tp - pos.open_price)) * 100));
-        if (pos.sl < pos.open_price) slPct = Math.min(100, Math.max(0, ((pos.open_price - lp) / (pos.open_price - pos.sl)) * 100));
-      } else {
-        if (pos.tp < pos.open_price) tpPct = Math.min(100, Math.max(0, ((pos.open_price - lp) / (pos.open_price - pos.tp)) * 100));
-        if (pos.sl > pos.open_price) slPct = Math.min(100, Math.max(0, ((lp - pos.open_price) / (pos.sl - pos.open_price)) * 100));
-      }
-    }
-
-    wrap.innerHTML = `
-      <div class="pos-card">
-        <div class="pos-header">
-          <span class="pos-symbol">${pos.symbol}</span>
-          <span class="pos-dir-badge" style="color:${isLong ? 'var(--green)' : 'var(--red)'}">${isLong ? '▲ LONG' : '▼ SHORT'}</span>
-          <span style="font-size:10px;color:var(--muted);background:rgba(0,230,118,0.08);padding:2px 7px;border-radius:4px">MT5 Live</span>
-        </div>
-        <div class="pos-prices">
-          <div class="pp"><div class="pp-l">Entrée</div><div class="pp-v">${fmtP(pos.open_price, pos.symbol)}</div></div>
-          <div class="pp"><div class="pp-l">Prix actuel</div><div class="pp-v">${fmtP(lp, pos.symbol)}</div></div>
-          <div class="pp"><div class="pp-l">Lot</div><div class="pp-v" style="color:var(--purple)">${pos.volume.toFixed(3)}</div></div>
-          <div class="pp"><div class="pp-l">P&L flottant</div><div class="pp-v" style="color:${pColor};font-weight:700">${pSign}${pos.profit.toFixed(2)} $</div></div>
-        </div>
-        <div class="pos-bars">
-          <div class="pb-row"><div class="pb-lbl" style="color:var(--green)">TP ${pos.tp ? fmtP(pos.tp, pos.symbol) : '—'}</div><div class="pb-track"><div class="pb-fill" style="width:${tpPct.toFixed(1)}%;background:var(--green)"></div></div><div class="pb-pct" style="color:var(--green)">${tpPct.toFixed(0)}%</div></div>
-          <div class="pb-row"><div class="pb-lbl" style="color:var(--red)">SL ${pos.sl ? fmtP(pos.sl, pos.symbol) : '—'}</div><div class="pb-track"><div class="pb-fill" style="width:${slPct.toFixed(1)}%;background:var(--red)"></div></div><div class="pb-pct" style="color:var(--red)">${slPct.toFixed(0)}%</div></div>
-        </div>
-        <div style="font-size:10px;color:var(--muted);text-align:right;margin-top:4px">#${pos.ticket} · ${new Date(pos.open_time).toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'})}</div>
-      </div>`;
-
-  } else if (pending.length > 0) {
-    // Ordre en attente MT5
-    if (noActive) noActive.style.display = 'none';
-    if (_posInterval) { clearInterval(_posInterval); _posInterval = null; }
-    const o = pending[0];
-    wrap.innerHTML = `
-      <div class="pos-card" style="border-color:rgba(255,214,0,0.3)">
-        <div class="pos-header">
-          <span class="pos-symbol">${o.symbol}</span>
-          <span style="color:var(--gold);font-weight:600">⏳ EN ATTENTE</span>
-          <span style="font-size:10px;color:var(--muted)">MT5 Live</span>
-        </div>
-        <div class="pos-prices">
-          <div class="pp"><div class="pp-l">Type</div><div class="pp-v" style="color:var(--gold)">${o.type}</div></div>
-          <div class="pp"><div class="pp-l">Prix limite</div><div class="pp-v">${fmtP(o.price, o.symbol)}</div></div>
-          <div class="pp"><div class="pp-l">Lot</div><div class="pp-v" style="color:var(--purple)">${o.volume.toFixed(3)}</div></div>
-          <div class="pp"><div class="pp-l">SL</div><div class="pp-v" style="color:var(--red)">${o.sl ? fmtP(o.sl, o.symbol) : '—'}</div></div>
-        </div>
-        <div style="font-size:10px;color:var(--muted);text-align:right;margin-top:4px">#${o.ticket}</div>
-      </div>`;
-
-  } else {
-    // Aucune position active ni SSE trade en cours
+  // Pas de position MT5 ni SSE → vide
+  if (!positions.length && !pending.length && !activeTrade) {
     if (_posInterval) { clearInterval(_posInterval); _posInterval = null; }
     wrap.innerHTML = '';
     if (noActive) noActive.style.display = 'block';
+    return;
   }
+  if (noActive) noActive.style.display = 'none';
+
+  // Construire l'objet trade unifié (MT5 prioritaire)
+  let sym, entry, sl, tp, isLong, isPending, livePrice, lot, profit, ticket, openTime;
+
+  if (positions.length > 0) {
+    const pos = positions[0];
+    sym      = pos.symbol;
+    entry    = pos.open_price;
+    sl       = pos.sl;
+    tp       = pos.tp;
+    isLong   = pos.type === 'BUY';
+    isPending = false;
+    lot      = pos.volume;
+    profit   = pos.profit;
+    ticket   = pos.ticket;
+    openTime = pos.open_time;
+
+    if (!_posInterval) {
+      fetchLivePrice(sym).then(() => renderActivePosition());
+      _posInterval = setInterval(() => { fetchLivePrice(sym).then(() => updateLivePriceDOM(sym)); }, 5000);
+    }
+    livePrice = _livePrices[sym.toUpperCase()]?.price ?? pos.current_price;
+
+  } else if (pending.length > 0) {
+    const o  = pending[0];
+    sym      = o.symbol;
+    entry    = o.price;
+    sl       = o.sl;
+    tp       = o.tp;
+    isLong   = o.type === 'BUY_LIMIT';
+    isPending = true;
+    lot      = o.volume;
+    profit   = null;
+    ticket   = o.ticket;
+    openTime = null;
+    livePrice = null;
+    if (_posInterval) { clearInterval(_posInterval); _posInterval = null; }
+
+  } else if (activeTrade) {
+    // Fallback SSE (MT5 pas encore renvoyé la position)
+    sym      = activeTrade.symbol || 'NAS100';
+    entry    = parseFloat(activeTrade.entry) || 0;
+    sl       = parseFloat(activeTrade.sl) || 0;
+    tp       = parseFloat(activeTrade.tp1) || 0;
+    isLong   = activeTrade.direction === 'BUY';
+    isPending = activeTrade.status === 'pending';
+    lot      = activeTrade.lot;
+    profit   = null;
+    ticket   = null;
+    openTime = null;
+    if (!_posInterval) {
+      fetchLivePrice(sym).then(() => renderActivePosition());
+      _posInterval = setInterval(() => { fetchLivePrice(sym).then(() => updateLivePriceDOM(sym)); }, 5000);
+    }
+    livePrice = _livePrices[sym.toUpperCase()]?.price ?? null;
+  } else {
+    return;
+  }
+
+  // Barres TP/SL
+  let tpPct = 0, slPct = 0;
+  if (livePrice && entry) {
+    if (isLong) {
+      if (tp > entry) tpPct = Math.min(100, Math.max(0, ((livePrice - entry) / (tp - entry)) * 100));
+      if (sl < entry) slPct = Math.min(100, Math.max(0, ((entry - livePrice) / (entry - sl)) * 100));
+    } else {
+      if (tp < entry) tpPct = Math.min(100, Math.max(0, ((entry - livePrice) / (entry - tp)) * 100));
+      if (sl > entry) slPct = Math.min(100, Math.max(0, ((livePrice - entry) / (sl - entry)) * 100));
+    }
+  }
+
+  const livePriceStr = livePrice ? fmtP(livePrice, sym) : '…';
+  const shortClass   = isLong ? '' : 'short';
+  const pnlSign      = profit != null ? (profit >= 0 ? '+' : '') : '';
+  const pnlTxt       = profit != null ? `${pnlSign}${profit.toFixed(2)} $` : '—';
+  const pnlClass     = profit != null ? (profit >= 0 ? 'pos' : 'neg') : '';
+
+  wrap.innerHTML = `<div class="mk-position ${shortClass}" id="dash-pos-card">
+    <div class="mk-pos-glow"></div>
+    <div class="mk-pos-hdr">
+      <div>
+        <div class="mk-pos-sym">${sym} <span class="pill ${isLong ? 'pill-long' : 'pill-short'}">${isLong ? 'LONG' : 'SHORT'}</span></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px">${openTime ? fmtT(openTime) : (ticket ? '#' + ticket : '')}</div>
+      </div>
+      <div class="mk-pos-badge">
+        <div class="mk-pos-dot"></div>
+        <div class="mk-pos-dir">${isPending ? '⏳ EN ATTENTE' : '● ACTIF'}</div>
+      </div>
+    </div>
+    <div class="mk-pos-live-price" id="dash-pos-live">${livePriceStr}</div>
+    <div class="mk-pos-grid">
+      <div class="mk-pos-cell"><div class="mk-pos-cell-lbl">Entry</div><div class="mk-pos-cell-val">${fmtP(entry, sym)}</div></div>
+      <div class="mk-pos-cell tp"><div class="mk-pos-cell-lbl">TP1</div><div class="mk-pos-cell-val">${fmtP(tp, sym)}</div></div>
+      <div class="mk-pos-cell sl"><div class="mk-pos-cell-lbl">SL</div><div class="mk-pos-cell-val">${fmtP(sl, sym)}</div></div>
+    </div>
+    <div class="mk-pos-progress">
+      <div class="mk-prog-row">
+        <div class="mk-prog-lbl" style="color:var(--green)">TP</div>
+        <div class="mk-prog-track"><div class="mk-prog-fill" style="width:${tpPct.toFixed(1)}%;background:var(--green)"></div></div>
+        <div class="mk-prog-pct" style="color:var(--green)">${tpPct.toFixed(0)}%</div>
+      </div>
+      <div class="mk-prog-row">
+        <div class="mk-prog-lbl" style="color:var(--red)">SL</div>
+        <div class="mk-prog-track"><div class="mk-prog-fill" style="width:${slPct.toFixed(1)}%;background:var(--red)"></div></div>
+        <div class="mk-prog-pct" style="color:var(--red)">${slPct.toFixed(0)}%</div>
+      </div>
+    </div>
+    <div class="mk-pos-ftr" style="display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:.5px solid rgba(255,255,255,0.07)">
+      <div class="mk-pos-pnl-lbl" style="font-size:10px;color:var(--muted)">P&L flottant</div>
+      <div class="mk-pos-pnl-val ${pnlClass}" style="font-family:var(--mono);font-size:14px;font-weight:700">${pnlTxt}</div>
+    </div>
+    <div style="font-family:var(--mono);font-size:10px;color:#aa66ff;text-align:right;margin-top:4px">${lot ? lot.toFixed(3) + ' lots' : ''}</div>
+  </div>`;
+}
+
+function updateLivePriceDOM(sym) {
+  const el = $('dash-pos-live');
+  if (!el) return;
+  const lp = _livePrices[(sym || '').toUpperCase()]?.price;
+  if (lp) el.textContent = fmtP(lp, sym);
 }
 
 // ── Derniers trades (depuis historique MT5 du jour) ──
 function tiHTML(t) {
   const isTP = t.result === 'TP1';
-  const pColor = (t.pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)';
-  return `<div class="ti-row">
-    <div class="ti-icon" style="background:${isTP ? 'rgba(0,200,83,0.12)' : 'rgba(255,23,68,0.12)'};color:${isTP ? 'var(--green)' : 'var(--red)'}">${isTP ? '✔' : '✖'}</div>
-    <div class="ti-body">
-      <div class="ti-top"><span class="ti-sym">${t.symbol || '—'}</span><span class="ti-dir" style="color:${t.direction === 'BUY' ? 'var(--green)' : 'var(--red)'}">${t.direction === 'BUY' ? '▲' : '▼'}</span><span class="ti-res" style="color:${isTP ? 'var(--green)' : 'var(--red)'}">${t.result || '—'}</span></div>
-      <div class="ti-bot"><span class="ti-time">${fmtT(t.closedAt || t.timestamp)}</span><span class="ti-lot">${t.lot ? t.lot.toFixed(3) + ' lots' : ''}</span></div>
+  const dir  = t.direction === 'BUY' ? 'Achat' : 'Vente';
+  const sym  = t.symbol || 'NAS100';
+  const pnlC = isTP ? 'green' : 'red';
+  const resultLbl = isTP ? 'TP Atteint' : 'SL Touché';
+  const heartOrCheck = isTP ? '✅' : '❤️';
+  const pnlTxt = t.pnl != null && t.pnl !== 0 ? fmtEs(t.pnl) : '—';
+  return `<div class="trade-item">
+    <div class="trade-item-inner">
+      <div class="ti-row1">
+        <div class="ti-icon-letter">A</div>
+        <div class="ti-title">${dir} ${sym}</div>
+        <div class="ti-dots">···</div>
+      </div>
+      <div class="ti-entry">Entrée : ${fmtP(t.entry, sym)}</div>
+      <div class="ti-row2">
+        <span class="ti-result-icon">${isTP ? 'ℹ️' : '⚠️'}</span>
+        <span class="ti-result-txt ${pnlC}">${resultLbl} ${pnlTxt}</span>
+        <span>${heartOrCheck}</span>
+      </div>
     </div>
-    <div class="ti-pnl" style="color:${pColor}">${fmtEs(t.pnl)}</div>
-  </div>`;
+  </div>
+  <div class="trade-sep"></div>`;
 }
 
 function renderRecentList() {
