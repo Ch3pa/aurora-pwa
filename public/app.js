@@ -10,6 +10,7 @@
 const API      = window.location.origin;
 let TOKEN      = localStorage.getItem('aurora_token') || null;
 let USERNAME   = localStorage.getItem('aurora_name')  || null;
+let ngrokUrl   = localStorage.getItem('aurora_mt5_url') || '';
 
 // État MT5 (source unique de vérité)
 let mt5Live    = null;   // Dernier snapshot /mt5/live
@@ -99,6 +100,7 @@ $('btn-login').onclick = async () => {
 
 function doLogout() {
   localStorage.removeItem('aurora_token'); localStorage.removeItem('aurora_name');
+  // On garde l'URL ngrok pour ne pas avoir à la ressaisir après reconnexion
   TOKEN = null; USERNAME = null;
   if (eventSource) eventSource.close();
   stopMT5Polling();
@@ -198,7 +200,7 @@ async function fetchMT5Live() {
   if (!TOKEN) return;
   try {
     const r = await fetch(`${API}/api/${TOKEN}/mt5/live`, {
-      headers: { 'x-aurora-token': TOKEN },
+      headers: { 'x-aurora-token': TOKEN, ...(ngrokUrl ? { 'x-mt5-url': ngrokUrl } : {}) },
       signal: AbortSignal.timeout(5000),
     });
     if (!r.ok) { setMT5Status(false); return; }
@@ -214,7 +216,7 @@ async function fetchMT5History() {
   if (!TOKEN) return;
   try {
     const r = await fetch(`${API}/api/${TOKEN}/mt5/history?days=90&filter=${filterSource}`, {
-      headers: { 'x-aurora-token': TOKEN },
+      headers: { 'x-aurora-token': TOKEN, ...(ngrokUrl ? { 'x-mt5-url': ngrokUrl } : {}) },
       signal: AbortSignal.timeout(10000),
     });
     if (!r.ok) return;
@@ -499,6 +501,10 @@ function renderSettings() {
   $('my-token').textContent      = TOKEN || '—';
   $('webhook-url').textContent   = `${window.location.origin}/webhook/${TOKEN}`;
 
+  // Champ URL ngrok
+  const ngrokInput = $('ngrok-url-input');
+  if (ngrokInput && !ngrokInput.dataset.dirty) ngrokInput.value = ngrokUrl;
+
   // Compte MT5
   const acc = mt5Live?.account;
   const el  = $('mt5-account-info');
@@ -558,9 +564,56 @@ $('copy-token') && ($('copy-token').onclick = () => {
 });
 
 // ============================================================
+// NGROK URL — sauvegarde
+// ============================================================
+async function saveNgrokUrl() {
+  const input = $('ngrok-url-input');
+  if (!input) return;
+  const val = input.value.trim().replace(/\/+$/, '');
+  if (val && !val.startsWith('http')) { toast('URL invalide — doit commencer par http'); return; }
+
+  ngrokUrl = val;
+  localStorage.setItem('aurora_mt5_url', val);
+
+  // Sauvegarder aussi côté serveur (pour persistance multi-appareil)
+  try {
+    await fetch(`${API}/api/${TOKEN}/mt5/url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-aurora-token': TOKEN },
+      body: JSON.stringify({ url: val }),
+    });
+  } catch {}
+
+  input.dataset.dirty = '';
+  toast(val ? '✓ URL ngrok sauvegardée' : '✓ URL effacée — mode localhost');
+
+  // Relancer le polling avec la nouvelle URL
+  startMT5Polling();
+  fetchMT5History();
+}
+
+// Au login, récupérer l'URL sauvegardée côté serveur
+async function loadNgrokUrl() {
+  if (!TOKEN) return;
+  // D'abord localStorage (plus rapide)
+  if (ngrokUrl) return;
+  try {
+    const r = await fetch(`${API}/api/${TOKEN}/mt5/url`, { headers: { 'x-aurora-token': TOKEN } });
+    if (r.ok) {
+      const d = await r.json();
+      if (d.url && d.url.startsWith('http') && !d.url.includes('localhost')) {
+        ngrokUrl = d.url;
+        localStorage.setItem('aurora_mt5_url', ngrokUrl);
+      }
+    }
+  } catch {}
+}
+
+// ============================================================
 // INIT
 // ============================================================
 async function bootApp() {
+  await loadNgrokUrl();
   await regSW();
   connectSSE();
   startMT5Polling();
