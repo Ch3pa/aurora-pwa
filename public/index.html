@@ -205,6 +205,25 @@
     <!-- SETTINGS -->
     <section id="tab-settings" class="tab-section">
       <div class="settings-wrap">
+        <div class="set-card">
+          <div class="set-lbl">🔗 URL ngrok (aurora.py)</div>
+          <div style="font-size:11px;color:var(--muted2);margin-bottom:10px;line-height:1.6">
+            Colle ici l'URL fournie par ngrok sur ton PC de trading.<br>
+            Ex : <span style="font-family:monospace;color:var(--muted)">https://xxxx.ngrok-free.app</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input
+              id="ngrok-url-input"
+              type="url"
+              placeholder="https://xxxx.ngrok-free.app"
+              style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;outline:none;font-family:monospace"
+              oninput="this.dataset.dirty='1'"
+              onkeydown="if(event.key==='Enter')saveNgrokUrl()"
+            />
+            <button class="copy-btn" onclick="saveNgrokUrl()" style="white-space:nowrap;padding:10px 16px">Sauvegarder</button>
+          </div>
+          <div id="ngrok-status" style="font-size:11px;margin-top:8px;color:var(--muted)"></div>
+        </div>
         <div class="set-card"><div class="set-lbl">Mon Token</div><div class="set-tok" id="my-token">—</div><button class="copy-btn" id="copy-token">Copier le token</button></div>
         <div class="set-card"><div class="set-lbl">Webhook TradingView</div><div class="set-val" id="webhook-url">—</div><button class="copy-btn" id="copy-wh">Copier l'URL</button></div>
         <div class="set-card"><div class="set-lbl">Payload BUY/SELL</div><div class="code-pre">{"action":"BUY","symbol":"{{ticker}}","lot":{{strategy.order.contracts}}}</div></div>
