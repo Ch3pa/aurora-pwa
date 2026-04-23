@@ -156,6 +156,7 @@ function connectSSE() {
   eventSource.addEventListener('entry', e => {
     activeTrade = JSON.parse(e.data);
     renderBanner(); renderActivePosition();
+    fetchMT5History().then(() => refreshActiveTab());
     toast((activeTrade.direction === 'BUY' ? '▲ LONG' : '▼ SHORT') + ' — Ordre limite posé');
     vib([100, 50, 100]);
   });
@@ -164,6 +165,7 @@ function connectSSE() {
     const d = JSON.parse(e.data);
     if (activeTrade) { activeTrade.status = 'active'; if (d.entry) activeTrade.entry = d.entry; }
     renderBanner(); renderActivePosition();
+    fetchMT5History().then(() => refreshActiveTab());
     toast('● Ordre activé — en position');
     vib([150, 50, 150]);
   });
@@ -247,13 +249,36 @@ async function fetchMT5History() {
   } catch {}
 }
 
+let _histInterval = null;
+
+function refreshActiveTab() {
+  const active = document.querySelector('.tab-section.active');
+  if (!active) return;
+  const id = active.id;
+  if (id === 'tab-stats')   renderStats();
+  if (id === 'tab-history') renderHistList();
+  if (id === 'tab-charts')  renderCharts();
+}
+
+async function refreshHistory() {
+  await fetchMT5History();
+  refreshActiveTab();
+}
+
 function startMT5Polling() {
   if (_mt5Interval) clearInterval(_mt5Interval);
   fetchMT5Live();
   _mt5Interval = setInterval(fetchMT5Live, 3000);
+
+  // Historique toutes les 30s en fond
+  if (_histInterval) clearInterval(_histInterval);
+  refreshHistory();
+  _histInterval = setInterval(refreshHistory, 30000);
 }
+
 function stopMT5Polling() {
   if (_mt5Interval) { clearInterval(_mt5Interval); _mt5Interval = null; }
+  if (_histInterval) { clearInterval(_histInterval); _histInterval = null; }
   mt5Live = null; setMT5Status(false);
 }
 
@@ -636,6 +661,7 @@ function goTab(name) {
   if (active) active.classList.add('active');
   $('tab-' + name).classList.add('active');
   closeMenu();
+  if (name === 'dashboard') { fetchMT5Live(); }
   if (name === 'stats')   { fetchMT5History().then(() => renderStats()); }
   if (name === 'history') { fetchMT5History().then(() => renderHistList()); }
   if (name === 'charts')  { fetchMT5History().then(() => renderCharts()); }
