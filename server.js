@@ -27,7 +27,13 @@ app.use(cors());
 app.use(express.json());
 
 // URL du pont MT5 (aurora.py Flask)
-const AURORA_MT5_URL = process.env.AURORA_MT5_URL || 'http://localhost:5000';
+const DEFAULT_MT5_URL = process.env.AURORA_MT5_URL || 'http://localhost:5000';
+const getMT5Url = (req) => {
+  const fromHeader = req && req.headers && req.headers['x-mt5-url'];
+  if (fromHeader && fromHeader.startsWith('http')) return fromHeader.replace(/\/+$/, '');
+  if (req && req.user && req.user.mt5Url) return req.user.mt5Url;
+  return DEFAULT_MT5_URL;
+};
 
 // VAPID keys
 const VAPID_FILE = path.join(__dirname, '.vapid.json');
