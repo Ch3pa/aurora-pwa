@@ -138,9 +138,20 @@ $('enable-push') && ($('enable-push').onclick = regSW);
 // ============================================================
 // SSE (événements webhook : entrée/annulation/sortie)
 // ============================================================
+let _sseReconnectTimer = null;
+
 function connectSSE() {
-  if (eventSource) eventSource.close();
+  // Annuler tout timer de reconnexion en cours
+  if (_sseReconnectTimer) { clearTimeout(_sseReconnectTimer); _sseReconnectTimer = null; }
+  // Fermer proprement l'ancienne connexion
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  if (!TOKEN) return;
+
   eventSource = new EventSource(`${API}/api/${TOKEN}/stream`);
+
+  eventSource.addEventListener('connected', () => {
+    console.log('[SSE] connecté');
+  });
 
   eventSource.addEventListener('entry', e => {
     activeTrade = JSON.parse(e.data);
@@ -174,9 +185,17 @@ function connectSSE() {
     vib([200]);
   });
 
-  eventSource.onerror = () => {
-    setMT5Status(false);
-    setTimeout(connectSSE, 3000);
+  eventSource.onerror = (err) => {
+    console.warn('[SSE] erreur connexion, reconnexion dans 4s');
+    // NE PAS toucher mt5Online ici — le SSE et MT5 polling sont indépendants
+    if (eventSource) { eventSource.close(); eventSource = null; }
+    // Reconnexion avec délai, une seule tentative à la fois
+    if (!_sseReconnectTimer) {
+      _sseReconnectTimer = setTimeout(() => {
+        _sseReconnectTimer = null;
+        if (TOKEN) connectSSE();
+      }, 4000);
+    }
   };
 }
 
@@ -454,6 +473,18 @@ function updateLivePriceDOM(sym) {
 }
 
 // ── Derniers trades (depuis historique MT5 du jour) ──
+function fmtTradeTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const today = new Date();
+  const isToday = d.toDateString() === today.toDateString();
+  const timePart = d.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+  if (isToday) return timePart;
+  const datePart = d.toLocaleDateString('fr', { day: 'numeric', month: 'short' });
+  return `${datePart} ${timePart}`;
+}
+
 function tiHTML(t) {
   const isTP = t.result === 'TP1';
   const dir  = t.direction === 'BUY' ? 'Achat' : 'Vente';
@@ -462,12 +493,14 @@ function tiHTML(t) {
   const resultLbl = isTP ? 'TP Atteint' : 'SL Touché';
   const heartOrCheck = isTP ? '✅' : '❤️';
   const pnlTxt = t.pnl != null && t.pnl !== 0 ? fmtEs(t.pnl) : '—';
+  // Heure de clôture (closedAt prioritaire, sinon timestamp)
+  const tradeTime = fmtTradeTime(t.closedAt || t.time || t.timestamp);
   return `<div class="trade-item">
     <div class="trade-item-inner">
       <div class="ti-row1">
         <div class="ti-icon-letter">A</div>
         <div class="ti-title">${dir} ${sym}</div>
-        <div class="ti-dots">···</div>
+        <div class="ti-dots" style="font-size:10px;color:var(--muted);font-family:var(--mono)">${tradeTime}</div>
       </div>
       <div class="ti-entry">Entrée : ${fmtP(t.entry, sym)}</div>
       <div class="ti-row2">
