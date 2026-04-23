@@ -1,8 +1,11 @@
 {
   "name": "aurora-pwa",
   "version": "1.0.0",
-  "description": "Aurora Trading PWA — Webhook receiver + Dashboard",
+  "description": "Aurora Trading PWA — MT5 Native Dashboard",
   "main": "server.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
